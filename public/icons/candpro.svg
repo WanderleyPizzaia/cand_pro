@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="CAND PRO">
+  <defs>
+    <linearGradient id="tile" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#141a24"/>
+      <stop offset="1" stop-color="#0a0d13"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f2d488"/>
+      <stop offset="0.55" stop-color="#e0b24d"/>
+      <stop offset="1" stop-color="#c8973a"/>
+    </linearGradient>
+  </defs>
+  <rect x="16" y="16" width="480" height="480" rx="112" fill="url(#tile)"/>
+  <rect x="17.5" y="17.5" width="477" height="477" rx="110.5" fill="none" stroke="#e0b24d" stroke-opacity="0.32" stroke-width="3"/>
+  <path d="M344 168 A120 120 0 1 0 344 344"
+        fill="none" stroke="url(#gold)" stroke-width="46"
+        stroke-linecap="round"/>
+  <circle cx="256" cy="256" r="30" fill="url(#gold)"/>
+</svg>

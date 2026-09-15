@@ -1,0 +1,59 @@
+{
+  "name": "PolitiHub — Agente IA (orquestração inbound)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "agente-candpro",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "webhook",
+      "name": "Webhook Inbound",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [220, 300],
+      "webhookId": "agente-candpro"
+    },
+    {
+      "parameters": {
+        "amount": 4,
+        "unit": "seconds"
+      },
+      "id": "debounce",
+      "name": "Debounce (juntar rajada)",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [440, 300],
+      "webhookId": "agente-debounce"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Webhook Inbound').item.json.body.responder_url }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "X-Candpro-Token", "value": "={{ $('Webhook Inbound').item.json.body.token }}" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ agente_id: $('Webhook Inbound').item.json.body.agente_id, numero: $('Webhook Inbound').item.json.body.numero, nome: $('Webhook Inbound').item.json.body.nome, wa_id: $('Webhook Inbound').item.json.body.wa_id }) }}",
+        "options": { "response": { "response": { "neverError": true } } }
+      },
+      "id": "responder",
+      "name": "Responder (plataforma gera + envia)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [680, 300]
+    }
+  ],
+  "connections": {
+    "Webhook Inbound": { "main": [[{ "node": "Debounce (juntar rajada)", "type": "main", "index": 0 }]] },
+    "Debounce (juntar rajada)": { "main": [[{ "node": "Responder (plataforma gera + envia)", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1" },
+  "active": false
+}

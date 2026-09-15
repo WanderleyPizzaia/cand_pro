@@ -1,0 +1,29 @@
+node_modules/
+.next/
+data/sistema.db
+data/sistema.db-*
+data/*.bak
+*.log
+.DS_Store
+tsconfig.tsbuildinfo
+
+# Variáveis de ambiente / segredos — NUNCA commitar
+.env
+.env.*
+!.env.example
+
+# Arquivos temporários de diagnóstico/local
+_diag.mjs
+_*.mjs
+_*.txt
+
+# Dados de contatos/entregáveis (NUNCA commitar — dados pessoais)
+Contatos_*
+Opt-in_*
+*.xlsx
+*.csv
+_*.json
+
+# QRs de conexão (temporários)
+QR_*.png
+_qr_*.png

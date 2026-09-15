@@ -1,0 +1,184 @@
+{
+  "name": "PolitiHub — Disparo em massa (cadência)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "disparo-candpro",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "webhook",
+      "name": "Webhook Disparo",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [220, 300],
+      "webhookId": "disparo-candpro"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "body.destinatarios",
+        "options": {}
+      },
+      "id": "split",
+      "name": "Separar destinatários",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [440, 300]
+    },
+    {
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      },
+      "id": "loop",
+      "name": "Loop 1 a 1",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [660, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "typeValidation": "strict" },
+          "conditions": [
+            {
+              "leftValue": "={{ $('Webhook Disparo').item.json.body.agente.provedor }}",
+              "rightValue": "meta",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if_meta",
+      "name": "É Meta?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [880, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://graph.facebook.com/v21.0/{{ $('Webhook Disparo').item.json.body.agente.meta_phone_id }}/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "=Bearer {{ $('Webhook Disparo').item.json.body.agente.meta_token }}" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ messaging_product: 'whatsapp', to: $json.numero, type: 'template', template: { name: $('Webhook Disparo').item.json.body.template, language: { code: $('Webhook Disparo').item.json.body.idioma || 'pt_BR' }, components: $json.texto ? [{ type: 'body', parameters: [{ type: 'text', text: $json.texto }] }] : [] } }) }}",
+        "options": { "response": { "response": { "neverError": true, "responseFormat": "json" } } }
+      },
+      "id": "http_meta",
+      "name": "Enviar Meta (template)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1120, 200]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Webhook Disparo').item.json.body.evolution_url }}/message/sendText/{{ $('Webhook Disparo').item.json.body.agente.instancia }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{ $('Webhook Disparo').item.json.body.agente.apikey || $('Webhook Disparo').item.json.body.evolution_apikey }}" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ number: $json.numero, text: $json.texto }) }}",
+        "options": { "response": { "response": { "neverError": true, "responseFormat": "json" } } }
+      },
+      "id": "http_evo",
+      "name": "Enviar Evolution (texto)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1120, 400]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Webhook Disparo').item.json.body.callback_url }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "X-Candpro-Token", "value": "={{ $('Webhook Disparo').item.json.body.token }}" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ campanha_id: $('Webhook Disparo').item.json.body.campanha_id, resultados: [{ numero: $json.numero, nome: $json.nome, ok: !!($json.messages || $json.key || $json.id), texto: $json.texto }] }) }}",
+        "options": { "response": { "response": { "neverError": true } } }
+      },
+      "id": "callback_item",
+      "name": "Callback (por contato)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1360, 300]
+    },
+    {
+      "parameters": {
+        "amount": 5,
+        "unit": "seconds"
+      },
+      "id": "wait",
+      "name": "Aguardar (cadência)",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [1580, 300],
+      "webhookId": "wait-cadencia"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Webhook Disparo').item.json.body.callback_url }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "X-Candpro-Token", "value": "={{ $('Webhook Disparo').item.json.body.token }}" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ campanha_id: $('Webhook Disparo').item.json.body.campanha_id, concluido: true, resultados: [] }) }}",
+        "options": { "response": { "response": { "neverError": true } } }
+      },
+      "id": "callback_fim",
+      "name": "Callback (concluído)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [900, 540]
+    }
+  ],
+  "connections": {
+    "Webhook Disparo": { "main": [[{ "node": "Separar destinatários", "type": "main", "index": 0 }]] },
+    "Separar destinatários": { "main": [[{ "node": "Loop 1 a 1", "type": "main", "index": 0 }]] },
+    "Loop 1 a 1": {
+      "main": [
+        [{ "node": "Callback (concluído)", "type": "main", "index": 0 }],
+        [{ "node": "É Meta?", "type": "main", "index": 0 }]
+      ]
+    },
+    "É Meta?": {
+      "main": [
+        [{ "node": "Enviar Meta (template)", "type": "main", "index": 0 }],
+        [{ "node": "Enviar Evolution (texto)", "type": "main", "index": 0 }]
+      ]
+    },
+    "Enviar Meta (template)": { "main": [[{ "node": "Callback (por contato)", "type": "main", "index": 0 }]] },
+    "Enviar Evolution (texto)": { "main": [[{ "node": "Callback (por contato)", "type": "main", "index": 0 }]] },
+    "Callback (por contato)": { "main": [[{ "node": "Aguardar (cadência)", "type": "main", "index": 0 }]] },
+    "Aguardar (cadência)": { "main": [[{ "node": "Loop 1 a 1", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1" },
+  "active": false
+}
