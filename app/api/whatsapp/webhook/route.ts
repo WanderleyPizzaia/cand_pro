@@ -19,6 +19,15 @@ import {
 export const dynamic = "force-dynamic";
 export const maxDuration = 60; // humanização lenta (ritmo pastor) pode segurar mais
 
+// Endereço REAL do contato. Contas novas do WhatsApp usam LID (<id>@lid), e o
+// telefone vem em `remoteJidAlt`. Responder para o LID dá "número não existe".
+function jidReal(key: any): string {
+  const jid: string = key?.remoteJid || "";
+  const alt: string = key?.remoteJidAlt || key?.senderPn || "";
+  if (jid.endsWith("@lid") && alt) return alt;
+  return jid;
+}
+
 // Webhook PÚBLICO que recebe eventos da Evolution API (messages.upsert).
 // Evolution espera resposta 200 rápida - processamos e respondemos.
 export async function POST(req: NextRequest) {
@@ -91,7 +100,7 @@ export async function POST(req: NextRequest) {
       );
       if (nossa) return NextResponse.json({ ok: true, eco: true });
     }
-    const rjidOut: string = key?.remoteJid || "";
+    const rjidOut: string = jidReal(key);
     if (!rjidOut.endsWith("@s.whatsapp.net")) return NextResponse.json({ ok: true });
     const numOut = rjidOut.split("@")[0];
     const txtOut =
@@ -139,7 +148,10 @@ export async function POST(req: NextRequest) {
   const audioMsg =
     data?.message?.audioMessage || data?.message?.pttMessage || null;
   const imageMsg = data?.message?.imageMessage || null;
-  const remoteJid: string = key?.remoteJid || "";
+  // Contas novas do WhatsApp chegam com endereço LID (<id>@lid) no lugar do
+  // telefone. O telefone real vem em `remoteJidAlt` — é ele que serve para
+  // responder e para casar com o cadastro do eleitor.
+  const remoteJid: string = jidReal(key);
   const numero = remoteJid.split("@")[0];
   const nome = data?.pushName || null;
 

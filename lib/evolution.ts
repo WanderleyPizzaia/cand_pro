@@ -1,12 +1,17 @@
 import { getConfig } from "./config";
 
 // Normaliza um número brasileiro para o formato da Evolution (com DDI 55).
+// Normaliza para o formato que a Evolution espera (DDI + DDD + número).
+// Só assume Brasil quando o número REALMENTE parece brasileiro sem DDI. Colar
+// "55" em qualquer número de 10-11 dígitos quebrava contatos estrangeiros
+// (ex.: +1 701 555 7208 virava 5517015557208 -> "número não existe").
 export function normalizarNumero(raw: string): string {
   const d = (raw || "").replace(/\D/g, "");
   if (!d) return "";
-  if (d.startsWith("55") && d.length >= 12) return d; // já tem DDI
-  if (d.length === 10 || d.length === 11) return "55" + d; // DDD + número
-  return d;
+  if (d.startsWith("55") && (d.length === 12 || d.length === 13)) return d; // já tem DDI
+  if (d.length === 10) return "55" + d; // DDD + fixo (8 dígitos)
+  if (d.length === 11 && d[2] === "9") return "55" + d; // DDD + celular (9 dígitos)
+  return d; // já vem completo com DDI (inclusive de outros países)
 }
 
 // Cliente mínimo da Evolution API (WhatsApp).
@@ -437,7 +442,10 @@ export async function buscarMensagensPagina(
     const msgs: MsgEvolution[] = [];
     for (const rec of records) {
       const key = rec?.key ?? {};
-      const jid: string = key?.remoteJid ?? "";
+      // Contas novas usam LID (<id>@lid); o telefone real vem em remoteJidAlt.
+      const bruto: string = key?.remoteJid ?? "";
+      const alt: string = key?.remoteJidAlt ?? key?.senderPn ?? "";
+      const jid: string = bruto.endsWith("@lid") && alt ? alt : bruto;
       if (!jid.endsWith("@s.whatsapp.net")) continue; // ignora grupos/broadcast
       const numero = jid.split("@")[0];
       const waId: string = key?.id ?? "";
