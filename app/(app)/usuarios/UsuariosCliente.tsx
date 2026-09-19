@@ -23,6 +23,8 @@ type Usuario = {
   criado_em: string;
   agentes?: number[];
   candidato_escopo?: string | null;
+  cadastros?: number;
+  online?: boolean;
 };
 type AgenteOpt = { id: number; candidato: string; telefone?: string | null };
 
@@ -148,6 +150,9 @@ export default function UsuariosCliente({ meuId, admin = true }: { meuId: number
   const [editId, setEditId] = useState<number | null>(null);
   const [edit, setEdit] = useState({ nome: "", email: "", perfil: "", agentes: [] as number[], candidato_escopo: "" });
   const [msg, setMsg] = useState<{ t: "ok" | "err"; x: string } | null>(null);
+  const [busca, setBusca] = useState("");
+  const [filtroPerfil, setFiltroPerfil] = useState("TODOS");
+  const [ordem, setOrdem] = useState<"nome" | "cadastros" | "recentes">("nome");
 
   // input de arquivo escondido reaproveitado para trocar a foto de um usuário existente
   const fotoInputRef = useRef<HTMLInputElement | null>(null);
@@ -274,6 +279,56 @@ export default function UsuariosCliente({ meuId, admin = true }: { meuId: number
 
   const setN = (k: string, v: string) => setNovo((s) => ({ ...s, [k]: v }));
   const setE = (k: string, v: string) => setEdit((s) => ({ ...s, [k]: v }));
+
+  // ===== Busca, filtro e ordenação da listagem =====
+  const termo = busca.trim().toLowerCase();
+  const visiveis = lista
+    .filter((u) => (filtroPerfil === "TODOS" ? true : u.perfil === filtroPerfil))
+    .filter(
+      (u) =>
+        !termo ||
+        u.nome.toLowerCase().includes(termo) ||
+        u.email.toLowerCase().includes(termo) ||
+        (u.candidato_escopo ?? "").toLowerCase().includes(termo)
+    )
+    .sort((a, b) => {
+      if (ordem === "cadastros") return (b.cadastros ?? 0) - (a.cadastros ?? 0);
+      if (ordem === "recentes") return b.id - a.id;
+      return a.nome.localeCompare(b.nome, "pt-BR");
+    });
+
+  // Exporta o que está VISÍVEL (respeita busca e filtro) em CSV para Excel.
+  function exportarCSV() {
+    const cel = (v: any) => {
+      const s = v == null ? "" : String(v);
+      return /[",;\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+    const csv = [
+      ["nome", "email", "perfil", "status", "gabinete", "cadastros", "criado_em"].join(","),
+      ...visiveis.map((u) =>
+        [
+          u.nome,
+          u.email,
+          rotulo(u.perfil),
+          u.ativo ? "Ativo" : "Inativo",
+          u.candidato_escopo ?? "",
+          u.cadastros ?? 0,
+          u.criado_em,
+        ]
+          .map(cel)
+          .join(",")
+      ),
+    ].join("\n");
+    // BOM para o Excel reconhecer os acentos.
+    const url = URL.createObjectURL(
+      new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" })
+    );
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `usuarios-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
 
   // Nomes de candidatos (agentes) para o dropdown de escopo de gabinete.
   const candidatosEscopo = Array.from(
@@ -407,6 +462,51 @@ export default function UsuariosCliente({ meuId, admin = true }: { meuId: number
       </form>
       )}
 
+      {/* Busca, filtro, ordenação e exportação */}
+      <div
+        style={{
+          display: "flex",
+          gap: 8,
+          alignItems: "center",
+          flexWrap: "wrap",
+          marginBottom: 12,
+        }}
+      >
+        <input
+          placeholder="Buscar por nome, e-mail ou gabinete…"
+          value={busca}
+          onChange={(e) => setBusca(e.target.value)}
+          style={{ flex: "1 1 260px", minWidth: 220 }}
+        />
+        <select
+          value={filtroPerfil}
+          onChange={(e) => setFiltroPerfil(e.target.value)}
+          style={{ flex: "none" }}
+        >
+          <option value="TODOS">Todos os perfis</option>
+          {PERFIS.map((p) => (
+            <option key={p.v} value={p.v}>
+              {p.r}
+            </option>
+          ))}
+        </select>
+        <select
+          value={ordem}
+          onChange={(e) => setOrdem(e.target.value as "nome" | "cadastros" | "recentes")}
+          style={{ flex: "none" }}
+        >
+          <option value="nome">Ordenar por nome</option>
+          <option value="cadastros">Mais cadastros</option>
+          <option value="recentes">Mais recentes</option>
+        </select>
+        <button type="button" className="btn btn-ghost" style={{ flex: "none" }} onClick={exportarCSV}>
+          Exportar CSV
+        </button>
+        <span style={{ fontSize: 12.5, color: "var(--muted)" }}>
+          {visiveis.length} de {lista.length} usuário(s)
+        </span>
+      </div>
+
       {/* Tabela */}
       <div className="table-wrap">
         <table>
@@ -417,13 +517,21 @@ export default function UsuariosCliente({ meuId, admin = true }: { meuId: number
               <th>Usuário / E-mail</th>
               <th>Perfil</th>
               <th>Status</th>
+              <th>Cadastros</th>
               <th>Link de captação</th>
               <th>Criado em</th>
               <th>Ações</th>
             </tr>
           </thead>
           <tbody>
-            {lista.map((u) => {
+            {visiveis.length === 0 && (
+              <tr>
+                <td colSpan={9} style={{ color: "var(--muted)", padding: 18 }}>
+                  Nenhum usuário encontrado com esse filtro.
+                </td>
+              </tr>
+            )}
+            {visiveis.map((u) => {
               const souEu = u.id === meuId;
               const editando = editId === u.id;
               return (
@@ -507,6 +615,17 @@ export default function UsuariosCliente({ meuId, admin = true }: { meuId: number
                   </td>
                   <td style={{ color: u.ativo ? "var(--green)" : "var(--muted)" }}>
                     {u.ativo ? "Ativo" : "Inativo"}
+                    {u.online && (
+                      <span title="Online agora" style={{ marginLeft: 6, color: "var(--green)" }}>
+                        ●
+                      </span>
+                    )}
+                  </td>
+                  <td
+                    style={{ fontWeight: 600 }}
+                    title="Contatos cadastrados por este usuário"
+                  >
+                    {u.cadastros ?? 0}
                   </td>
                   <td>
                     <CopyLink path={`/form/${u.email}`} compact />

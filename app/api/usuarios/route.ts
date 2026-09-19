@@ -37,6 +37,10 @@ export async function GET() {
   const lista = await query(
     `SELECT u.id, u.nome, u.email, u.perfil, u.foto, u.ativo, u.candidato_escopo,
             to_char(u.criado_em, 'YYYY-MM-DD HH24:MI') AS criado_em,
+            -- Quantos contatos este usuário cadastrou (pessoas.criado_por = id).
+            (SELECT COUNT(*) FROM pessoas p WHERE p.criado_por = u.id::text)::int AS cadastros,
+            -- Presença: heartbeat do atendimento nos últimos 2 minutos.
+            (u.visto_em IS NOT NULL AND u.visto_em > now() - interval '2 minutes') AS online,
             COALESCE(
               (SELECT array_agg(agente_id) FROM atendente_agentes WHERE usuario_id = u.id),
               '{}'
