@@ -656,6 +656,23 @@ tr:hover td {
   gap: 16px;
   height: 640px;
 }
+/* Tela de Conversas ocupa exatamente a altura da janela: a PÁGINA não rola,
+   só a lista de conversas e o histórico de mensagens. O desconto é o padding
+   do .main (28px em cima e embaixo). */
+.inbox-tela {
+  display: flex;
+  flex-direction: column;
+  height: calc(100dvh - 56px);
+  min-height: 460px;
+}
+.inbox-tela .inbox {
+  flex: 1;
+  height: auto;
+  min-height: 0; /* sem isso o grid não deixa os filhos rolarem */
+}
+.inbox-tela .page-sub {
+  margin-bottom: 12px;
+}
 .inbox-list {
   background: var(--panel);
   border: 1px solid var(--border);
@@ -968,6 +985,8 @@ tr:hover td {
 .inbox-reply .btn {
   border-radius: 999px;
   padding-inline: 20px;
+  /* .btn-primary é flex:1 no resto do app; aqui quem cresce é o campo. */
+  flex: 0 0 auto;
 }
 /* Botão "voltar" da thread — só aparece no mobile (single-pane) */
 .inbox-voltar {
@@ -980,6 +999,14 @@ tr:hover td {
     gap: 0;
     height: calc(100dvh - 150px);
     min-height: 420px;
+  }
+  /* Altura da janela menos a barra do topo, o padding do conteúdo e o dock. */
+  .inbox-tela {
+    height: calc(
+      100dvh - 54px - env(safe-area-inset-top) - 18px - 76px -
+        env(safe-area-inset-bottom)
+    );
+    min-height: 360px;
   }
   .inbox .inbox-thread {
     display: none;

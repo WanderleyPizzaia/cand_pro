@@ -47,7 +47,8 @@ export default async function InboxPage({
   const ehGestor = ["ADMIN", "COORDENACAO"].includes(sessao.perfil);
 
   return (
-    <>
+    // Tela fixa: quem rola é a lista de conversas e as mensagens, não a página.
+    <div className="inbox-tela">
       <h1 className="page-title">
         <Icon name="chat" /> Conversas · WhatsApp
       </h1>
@@ -67,6 +68,6 @@ export default async function InboxPage({
         contatoInicial={contatoInicial}
         agenteInicial={agenteInicial}
       />
-    </>
+    </div>
   );
 }
