@@ -664,17 +664,31 @@ tr:hover td {
   box-shadow: var(--shadow);
 }
 .inbox-conv {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 11px;
+  gap: 12px;
   width: 100%;
   text-align: left;
   background: none;
   border: none;
-  border-bottom: 1px solid var(--border);
-  padding: 10px 12px;
+  padding: 12px 14px;
   cursor: pointer;
-  transition: 0.15s;
+  transition: background 0.15s ease;
+}
+/* Divisória fina que não encosta na borda do card (respira melhor que um
+   border-bottom cheio) e some na última conversa. */
+.inbox-conv::after {
+  content: "";
+  position: absolute;
+  left: 66px;
+  right: 14px;
+  bottom: 0;
+  height: 1px;
+  background: var(--border);
+}
+.inbox-conv:last-child::after {
+  display: none;
 }
 .inbox-conv-body {
   flex: 1;
@@ -683,13 +697,19 @@ tr:hover td {
 .inbox-conv:hover {
   background: var(--panel-2);
 }
+/* Selecionada: faixa dourada por dentro (não empurra o conteúdo como o
+   border-left fazia) + fundo dourado bem diluído. */
 .inbox-conv.ativo {
-  background: rgba(37, 99, 235, 0.08);
-  border-left: 3px solid var(--accent);
+  background: rgba(224, 178, 77, 0.1);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+.inbox-conv.ativo .inbox-conv-nome {
+  color: var(--accent);
 }
 .inbox-conv-top {
   display: flex;
   justify-content: space-between;
+  align-items: baseline;
   gap: 8px;
 }
 .inbox-conv-nome {
@@ -703,6 +723,7 @@ tr:hover td {
   font-size: 11px;
   color: var(--muted);
   flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
 }
 .inbox-conv-prev {
   font-size: 12.5px;
@@ -919,12 +940,34 @@ tr:hover td {
 }
 .inbox-reply {
   display: flex;
-  gap: 8px;
-  padding: 12px;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
   border-top: 1px solid var(--border);
+  background: var(--panel-2);
 }
 .inbox-reply input {
   flex: 1;
+  min-width: 0;
+  padding: 11px 16px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--text);
+  font-size: 13.5px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.inbox-reply input::placeholder {
+  color: var(--muted);
+}
+.inbox-reply input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(224, 178, 77, 0.16);
+}
+.inbox-reply .btn {
+  border-radius: 999px;
+  padding-inline: 20px;
 }
 /* Botão "voltar" da thread — só aparece no mobile (single-pane) */
 .inbox-voltar {
@@ -967,21 +1010,87 @@ tr:hover td {
   }
   .inbox-head {
     padding: 10px 12px;
+    gap: 9px;
   }
-  .ia-toggle {
-    padding: 5px 10px;
+  /* Nome do contato não empurra os botões do cabeçalho para fora da tela. */
+  .inbox-head-info {
+    flex: 1;
+  }
+  .inbox-head-info b {
+    font-size: 14px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .inbox-head .wa-avatar {
+    width: 38px;
+    height: 38px;
+  }
+  .ia-toggle,
+  .atrib-btn {
+    padding: 6px 10px;
     font-size: 11.5px;
   }
+  /* Conversas: área de toque confortável (mínimo ~44px de altura). */
+  .inbox-filtros {
+    padding: 9px 10px 8px;
+  }
+  .inbox-conv {
+    padding: 13px 12px;
+  }
+  .inbox-conv::after {
+    left: 62px;
+    right: 12px;
+  }
+  .inbox-conv-nome {
+    font-size: 14px;
+  }
   .bolha {
-    max-width: 84%;
+    max-width: 86%;
+    font-size: 14px;
   }
   .inbox-msgs {
-    padding: 14px 12px;
+    padding: 12px 10px;
+    gap: 6px;
   }
+  /* Campo de resposta colado no rodapé, acima da barra de gestos do iPhone. */
   .inbox-reply {
     position: sticky;
     bottom: 0;
-    background: var(--panel);
+    background: var(--panel-2);
+    padding: 10px 10px calc(10px + env(safe-area-inset-bottom));
+    gap: 8px;
+  }
+  .inbox-reply input {
+    min-height: 44px;
+  }
+  .inbox-reply .btn {
+    min-height: 44px;
+    padding-inline: 18px;
+  }
+}
+
+/* Celular estreito: dá espaço ao nome do contato e ao campo de resposta. */
+@media (max-width: 480px) {
+  .inbox-head-info span {
+    display: none; /* o número já aparece na lista */
+  }
+  .inbox-head .wa-avatar {
+    width: 34px;
+    height: 34px;
+  }
+  .ia-toggle,
+  .atrib-btn {
+    padding: 5px 9px;
+    font-size: 11px;
+    gap: 5px;
+  }
+  .inbox-reply {
+    padding: 9px 8px calc(9px + env(safe-area-inset-bottom));
+  }
+  .inbox-reply .btn {
+    padding-inline: 14px;
+    font-size: 13px;
   }
 }
 
@@ -1008,8 +1117,28 @@ tr:hover td {
 .map-tab.ativo {
   background: var(--accent);
   border-color: var(--accent);
-  color: #fff;
-  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
+  color: var(--ink); /* texto escuro sobre o dourado (antes sumia em branco) */
+  box-shadow: 0 4px 12px rgba(224, 178, 77, 0.22);
+}
+
+/* Celular: as abas deslizam na horizontal em vez de quebrar em várias linhas
+   (precisa vir DEPOIS da regra base, senão o flex-wrap dela vence). */
+@media (max-width: 860px) {
+  .map-tabs {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 2px;
+  }
+  .map-tabs::-webkit-scrollbar {
+    display: none;
+  }
+  .map-tab {
+    flex: none;
+    padding: 8px 14px;
+    font-size: 13px;
+  }
 }
 
 /* ===== Map ===== */
@@ -3565,6 +3694,16 @@ span.dash-avatar {
   border-radius: 10px;
   border: 1px solid var(--border);
   background: var(--panel-2);
+  color: var(--text);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.inbox-busca::placeholder {
+  color: var(--muted);
+}
+.inbox-busca:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(224, 178, 77, 0.16);
 }
 .inbox-abas {
   display: flex;
@@ -3587,10 +3726,11 @@ span.dash-avatar {
   transition: 0.15s;
 }
 .inbox-aba:hover { color: var(--text); }
+/* Dourado com texto escuro: em branco sobre dourado o rótulo sumia. */
 .inbox-aba.ativo {
   background: var(--accent);
   border-color: var(--accent);
-  color: #fff;
+  color: var(--ink);
 }
 .inbox-conv-prev {
   display: flex;
@@ -3613,10 +3753,11 @@ span.dash-avatar {
   padding: 2px 7px;
   border-radius: 99px;
 }
-.conv-tag.ia { background: #e8f7ee; color: #0a7d3b; }
-.conv-tag.minha { background: #ede9fe; color: #6d28d9; }
-.conv-tag.nova { background: #25d366; color: #fff; }
-.conv-tag.campanha { background: #fef3c7; color: #92610a; }
+/* Etiquetas no tema escuro: fundo translúcido + texto na própria cor. */
+.conv-tag.ia { background: rgba(52, 211, 153, 0.16); color: #4ade9f; }
+.conv-tag.minha { background: rgba(167, 139, 250, 0.18); color: #b9a6fb; }
+.conv-tag.nova { background: #1fa855; color: #fff; }
+.conv-tag.campanha { background: rgba(245, 196, 81, 0.18); color: var(--accent); }
 
 /* ===== Meu Agente: blocos e ferramentas ===== */
 .bloco-agente {
