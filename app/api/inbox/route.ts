@@ -3,6 +3,7 @@ import { query, queryOne, execute, Agente } from "@/lib/db";
 import { getSessao } from "@/lib/auth";
 import { enviarMensagemAgente } from "@/lib/meta";
 import { contemComando, alternar, pausar } from "@/lib/atendimento";
+import { agentesDaSessao } from "@/lib/escopo";
 
 export const dynamic = "force-dynamic";
 
@@ -22,14 +23,11 @@ export async function GET(req: NextRequest) {
     ? Number(url.searchParams.get("agente"))
     : null;
 
-  // CANDIDATO: restrito a TODOS os seus números (escopoAgentes do login).
-  // escWhere é a fronteira de segurança; agenteFilter só pode narrow dentro dela.
-  const escList =
-    s.perfil === "CANDIDATO"
-      ? s.escopoAgentes && s.escopoAgentes.length
-        ? s.escopoAgentes
-        : [-1] // candidato sem número vinculado não vê nada
-      : null;
+  // Fronteira de segurança: os números que esta sessão enxerga agora
+  // (marcados no usuário ou herdados do gabinete). null = todos.
+  // agenteFilter só pode estreitar dentro dela.
+  const meus = await agentesDaSessao(s);
+  const escList = meus === null ? null : meus.length ? meus : [-1];
   if (escList && agenteFilter && !escList.includes(agenteFilter)) agenteFilter = null;
   const escWhere = escList ? ` AND agente_id IN (${escList.join(",")})` : "";
 
@@ -131,12 +129,10 @@ export async function POST(req: NextRequest) {
   if (!contato || !texto || !agenteId)
     return NextResponse.json({ erro: "Dados incompletos." }, { status: 400 });
 
-  // Candidato só pode responder pelos PRÓPRIOS números (qualquer um do escopo).
-  if (!gestor) {
-    const esc = s.escopoAgentes || [];
-    if (!esc.includes(agenteId))
-      return NextResponse.json({ erro: "Acesso negado" }, { status: 403 });
-  }
+  // Só se responde pelos números que a sessão enxerga (null = sem restrição).
+  const meusEnvio = await agentesDaSessao(s);
+  if (meusEnvio && !meusEnvio.includes(agenteId))
+    return NextResponse.json({ erro: "Acesso negado" }, { status: 403 });
 
   const agente = await queryOne<Agente>("SELECT * FROM agentes WHERE id = $1", [
     agenteId,

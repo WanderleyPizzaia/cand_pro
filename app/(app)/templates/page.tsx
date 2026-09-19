@@ -5,6 +5,7 @@ import Icon from "../../components/Icon";
 import WhatsTabs from "../agentes/WhatsTabs";
 import CandidatoTabs from "../inbox/CandidatoTabs";
 import TemplatesClient from "./TemplatesClient";
+import { agentesDaSessao } from "@/lib/escopo";
 
 export const dynamic = "force-dynamic";
 
@@ -14,10 +15,11 @@ export default async function TemplatesPage() {
   if (sessao.perfil !== "ADMIN" && !ehCandidato) redirect("/");
 
   // CANDIDATO: só os próprios números Meta. ADMIN: todos.
+  const meusAgentes = await agentesDaSessao(sessao);
   const escCand =
     ehCandidato
-      ? sessao.escopoAgentes && sessao.escopoAgentes.length
-        ? sessao.escopoAgentes
+      ? meusAgentes && meusAgentes.length
+        ? meusAgentes
         : [-1]
       : null;
   const agentes = escCand

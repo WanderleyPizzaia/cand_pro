@@ -5,6 +5,7 @@ import {
   agentesDoCandidato,
   type MetaProgresso,
 } from "./metas";
+import { agentesDaSessao } from "./escopo";
 
 // ===== Coleta dos indicadores do Dashboard inicial =====
 // Reutilizado pela página (render inicial) e pela API /api/dashboard (real time).
@@ -116,17 +117,13 @@ async function tempoRespostaMedio(agenteIds?: number[]): Promise<number | null> 
 export async function coletarDashboard(sessao: Sessao): Promise<DashboardData> {
   const ehLider = sessao.perfil === "LIDER";
   // Escopado ao candidato: CANDIDATO real OU usuário de equipe vinculado
-  // (candidato_escopo → sessao.escopoAgentes no login). ADMIN nunca é escopado.
-  const bound = sessao.perfil !== "ADMIN" && !!sessao.escopoAgentes;
+  // (números marcados no usuário ou do gabinete). ADMIN nunca é escopado.
+  const meus = await agentesDaSessao(sessao);
+  const bound = meus !== null;
   const ehCandidato = sessao.perfil === "CANDIDATO" || bound;
 
   // Agentes (números) do escopo, quando aplicável: candidato/equipe = os dele.
-  let agenteIds: number[] | null = null;
-  if (bound) agenteIds = sessao.escopoAgentes!.length ? sessao.escopoAgentes! : [-1];
-  else if (sessao.perfil === "CANDIDATO") {
-    const ids = await agentesDoCandidato(sessao.nome, sessao.uid);
-    agenteIds = ids.length ? ids : [-1]; // sem agentes → não vaza nada
-  }
+  const agenteIds: number[] | null = bound ? (meus!.length ? meus! : [-1]) : null;
   const inIds = agenteIds ? `(${agenteIds.join(",")})` : "";
 
   const escopo = ehLider

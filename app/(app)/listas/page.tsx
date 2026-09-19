@@ -4,6 +4,7 @@ import { query, Agente } from "@/lib/db";
 import Icon from "../../components/Icon";
 import WhatsTabs from "../agentes/WhatsTabs";
 import ListasCliente from "./ListasCliente";
+import { agentesDaSessao } from "@/lib/escopo";
 
 export const dynamic = "force-dynamic";
 
@@ -14,7 +15,7 @@ export default async function ListasPage() {
   if (!PERMITIDOS.includes(sessao.perfil)) redirect("/");
 
   // Números disponíveis (escopados p/ candidato/equipe vinculado).
-  const esc = sessao.escopoAgentes;
+  const esc = await agentesDaSessao(sessao);
   const filtro =
     sessao.perfil !== "ADMIN" && esc
       ? `AND id IN (${(esc.length ? esc : [-1]).join(",")})`

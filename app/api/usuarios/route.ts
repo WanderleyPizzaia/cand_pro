@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query, queryOne, execute, Usuario } from "@/lib/db";
 import { getSessao, hashSenha } from "@/lib/auth";
-import { definirAgentesDoAtendente } from "@/lib/atendimentoCrm";
+import { definirAgentesDoUsuario } from "@/lib/atendimentoCrm";
+import { limparCacheEscopo } from "@/lib/escopo";
 
 export const dynamic = "force-dynamic";
 
@@ -42,7 +43,7 @@ export async function GET() {
             -- Presença: heartbeat do atendimento nos últimos 2 minutos.
             (u.visto_em IS NOT NULL AND u.visto_em > now() - interval '2 minutes') AS online,
             COALESCE(
-              (SELECT array_agg(agente_id) FROM atendente_agentes WHERE usuario_id = u.id),
+              (SELECT array_agg(agente_id) FROM usuario_agentes WHERE usuario_id = u.id),
               '{}'
             ) AS agentes
        FROM usuarios u ${where} ORDER BY u.id`,
@@ -96,9 +97,11 @@ export async function POST(req: NextRequest) {
     [nome, email, hashSenha(senha), perfil, foto, escopo]
   );
 
-  // Vínculo atendente ↔ números.
-  if (novo && perfil === "ATENDENTE" && Array.isArray(b.agentes)) {
-    await definirAgentesDoAtendente(novo.id, b.agentes.map(Number));
+  // Números que este usuário enxerga (vale para qualquer perfil; vazio =
+  // segue o gabinete).
+  if (novo && Array.isArray(b.agentes)) {
+    await definirAgentesDoUsuario(novo.id, b.agentes.map(Number));
+    limparCacheEscopo(novo.id);
   }
 
   return NextResponse.json({ id: novo?.id }, { status: 201 });
@@ -221,12 +224,15 @@ export async function PATCH(req: NextRequest) {
     vals.push(b.candidato_escopo.trim() || null);
   }
 
-  // Vínculo atendente ↔ números (independente dos campos do usuário).
+  // Números que este usuário enxerga (independente dos campos do usuário).
   let mexeuAgentes = false;
   if (Array.isArray(b.agentes)) {
-    await definirAgentesDoAtendente(id, b.agentes.map(Number));
+    await definirAgentesDoUsuario(id, b.agentes.map(Number));
     mexeuAgentes = true;
   }
+  // O escopo é lido do banco com cache curto: derruba o cache deste usuário
+  // para a mudança valer já na próxima página que ele abrir.
+  if (mexeuAgentes || typeof b.candidato_escopo === "string") limparCacheEscopo(id);
 
   if (sets.length === 0) {
     if (mexeuAgentes) return NextResponse.json({ ok: true });

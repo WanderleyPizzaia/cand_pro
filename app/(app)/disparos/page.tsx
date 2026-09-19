@@ -4,6 +4,7 @@ import { query, Agente, quotaEfetiva, disparosUsadosHoje } from "@/lib/db";
 import { statusConfig } from "@/lib/config";
 import Icon from "../../components/Icon";
 import DisparosCliente from "./DisparosCliente";
+import { agentesDaSessao } from "@/lib/escopo";
 
 export const dynamic = "force-dynamic";
 
@@ -12,8 +13,9 @@ export default async function DisparosPage() {
   if (!["ADMIN", "COORDENACAO", "CANDIDATO"].includes(sessao.perfil)) redirect("/");
 
   // Isolamento: coordenação vinculada só dispara pelos números do seu candidato.
-  const bound = sessao.perfil !== "ADMIN" && !!sessao.escopoAgentes;
-  const inIds = bound ? (sessao.escopoAgentes!.length ? sessao.escopoAgentes! : [-1]).join(",") : "";
+  const escAgentes = await agentesDaSessao(sessao);
+  const bound = escAgentes !== null;
+  const inIds = bound ? (escAgentes!.length ? escAgentes! : [-1]).join(",") : "";
   const filtroAg = bound ? `AND id IN (${inIds})` : "";
   const filtroPes = bound ? `AND agente_id IN (${inIds})` : "";
 

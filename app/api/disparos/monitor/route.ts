@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { getSessao } from "@/lib/auth";
+import { agentesDaSessao } from "@/lib/escopo";
 
 export const dynamic = "force-dynamic";
 
@@ -13,9 +14,9 @@ export async function GET() {
     return NextResponse.json({ erro: "Acesso negado" }, { status: 403 });
 
   // Isolamento: coordenação vinculada só monitora as campanhas do candidato dela.
-  const bound = s.perfil !== "ADMIN" && s.escopoAgentes;
-  const filtroCand = bound
-    ? `WHERE c.agente_id IN (${(s.escopoAgentes!.length ? s.escopoAgentes! : [-1]).join(",")})`
+  const meus = await agentesDaSessao(s);
+  const filtroCand = meus
+    ? `WHERE c.agente_id IN (${(meus.length ? meus : [-1]).join(",")})`
     : "";
 
   const linhas = await query(

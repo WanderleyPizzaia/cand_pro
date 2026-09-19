@@ -6,6 +6,7 @@ import InboxCliente from "./InboxCliente";
 import CandidatoTabs from "./CandidatoTabs";
 import PuxarNovas from "./PuxarNovas";
 import Icon from "../../components/Icon";
+import { agentesDaSessao } from "@/lib/escopo";
 
 export const dynamic = "force-dynamic";
 
@@ -22,13 +23,10 @@ export default async function InboxPage({
   const contatoInicial = (searchParams.contato || "").replace(/\D/g, "") || null;
   const agenteInicial = searchParams.agente ? Number(searchParams.agente) : null;
 
-  // Números do CANDIDATO (todos os do escopo). Vazio => não vê nada.
-  const escCand =
-    sessao.perfil === "CANDIDATO"
-      ? sessao.escopoAgentes && sessao.escopoAgentes.length
-        ? sessao.escopoAgentes
-        : [-1]
-      : null;
+  // Números que esta sessão enxerga (marcados no usuário ou do gabinete).
+  // null = todos. Vazio => não vê nada.
+  const meusAgentes = await agentesDaSessao(sessao);
+  const escCand = meusAgentes === null ? null : meusAgentes.length ? meusAgentes : [-1];
 
   // Busca agentes para o seletor de abas. CANDIDATO só os SEUS números;
   // gestor/admin todos.

@@ -4,6 +4,7 @@ import { getSessao } from "@/lib/auth";
 import { getConfig } from "@/lib/config";
 import { enviarMensagemAgente, enviarAudioAgente, enviarImagemAgente } from "@/lib/meta";
 import { pausar, contemComando, alternar } from "@/lib/atendimento";
+import { agentesDaSessao } from "@/lib/escopo";
 import {
   assumir,
   assumirSeLivre,
@@ -42,11 +43,12 @@ function sessaoOk() {
   return s && PERMITIDOS.includes(s.perfil) ? s : null;
 }
 
-// IDs de agentes que a sessão pode operar. ATENDENTE é limitado aos números
-// vinculados (sessao.escopoAgentes). Gestor/ADMIN: null = todos.
-function escopoAgentes(s: ReturnType<typeof getSessao>): number[] | null {
+// IDs de agentes que a sessão pode operar: os números marcados no usuário ou
+// herdados do gabinete. Gestor/ADMIN sem vínculo: null = todos.
+async function escopoAgentes(s: ReturnType<typeof getSessao>): Promise<number[] | null> {
   if (!s) return [-1];
-  if (s.escopoAgentes) return s.escopoAgentes.length ? s.escopoAgentes : [-1];
+  const ids = await agentesDaSessao(s);
+  if (ids) return ids.length ? ids : [-1];
   // Segurança: CANDIDATO sem escopo resolvido não vê NADA (nunca "vê todos").
   if (s.perfil === "CANDIDATO") return [-1];
   return null; // ADMIN/MARKETING/Coordenação sem escopo => vê todos
@@ -68,7 +70,7 @@ export async function GET(req: NextRequest) {
   const contato = (url.searchParams.get("contato") ?? "").trim();
   const agenteQ = Number(url.searchParams.get("agente")) || null;
 
-  const esc = escopoAgentes(s);
+  const esc = await escopoAgentes(s);
   // Atendente pedindo número fora do escopo: nega.
   if (esc && agenteQ && !esc.includes(agenteQ))
     return NextResponse.json({ erro: "Sem acesso a este número." }, { status: 403 });
@@ -217,7 +219,7 @@ export async function GET(req: NextRequest) {
                      = (now() AT TIME ZONE 'America/Sao_Paulo')::date)::int AS resolvidas_hoje,
             COALESCE(array_agg(va.agente_id) FILTER (WHERE va.agente_id IS NOT NULL), '{}') AS agentes
        FROM usuarios u
-       LEFT JOIN atendente_agentes va ON va.usuario_id = u.id
+       LEFT JOIN usuario_agentes va ON va.usuario_id = u.id
       WHERE u.perfil = 'ATENDENTE'
       GROUP BY u.id, u.nome, u.disponivel, u.visto_em
       ${havingEsc}
@@ -262,7 +264,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ erro: "Dados incompletos." }, { status: 400 });
 
   // Atendente só age nos números vinculados a ele.
-  const esc = escopoAgentes(s);
+  const esc = await escopoAgentes(s);
   if (esc && !esc.includes(agenteId))
     return NextResponse.json({ erro: "Sem acesso a este número." }, { status: 403 });
 

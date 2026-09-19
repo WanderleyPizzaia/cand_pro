@@ -44,10 +44,12 @@ export type Sessao = {
   perfil: Perfil;
   // Já passou pela tela de boas-vindas do 1º acesso.
   onboarded?: boolean;
-  // Isolamento por candidato: nome do candidato do escopo + agentes dele.
-  // Setado no login p/ CANDIDATO ou usuário com candidato_escopo (equipe). ADMIN nunca tem.
+  // Isolamento por candidato: nome do gabinete vinculado. Setado no login p/
+  // CANDIDATO ou usuário com candidato_escopo (equipe). ADMIN nunca tem.
+  // Os NÚMEROS não vêm daqui: são lidos do banco a cada requisição
+  // (lib/escopo.ts → agentesDaSessao), senão mudança de escopo só valeria
+  // no próximo login.
   escopoCandidato?: string;
-  escopoAgentes?: number[];
 };
 
 // ===== Cookie assinado (HMAC) =====

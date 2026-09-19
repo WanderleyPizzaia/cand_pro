@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query, queryOne, execute, Agente, Template, TemplateVar } from "@/lib/db";
 import { getSessao } from "@/lib/auth";
+import { agentesDaSessao } from "@/lib/escopo";
 import { normalizarNumero } from "@/lib/evolution";
 import {
   criarTemplateMeta,
@@ -21,9 +22,13 @@ function autorizado() {
 }
 // O usuário pode operar templates deste agente? ADMIN: sempre. CANDIDATO: só
 // se o agente estiver no escopo dele.
-function podeAgente(s: NonNullable<ReturnType<typeof getSessao>>, agenteId: number): boolean {
-  if (s.perfil === "ADMIN") return true;
-  return (s.escopoAgentes || []).includes(agenteId);
+async function podeAgente(
+  s: NonNullable<ReturnType<typeof getSessao>>,
+  agenteId: number
+): Promise<boolean> {
+  const meus = await agentesDaSessao(s);
+  if (meus === null) return true; // sem restrição de números
+  return meus.includes(agenteId);
 }
 
 function mapStatus(metaStatus: string): string {
@@ -44,7 +49,7 @@ export async function GET(req: NextRequest) {
   if (!s) return NextResponse.json({ erro: "Acesso negado" }, { status: 403 });
   const agenteId = Number(new URL(req.url).searchParams.get("agente"));
   if (!agenteId) return NextResponse.json([]);
-  if (!podeAgente(s, agenteId))
+  if (!(await podeAgente(s, agenteId)))
     return NextResponse.json({ erro: "Sem acesso a este número." }, { status: 403 });
 
   const a = await agenteMeta(agenteId);
@@ -83,7 +88,7 @@ export async function POST(req: NextRequest) {
   if (teste) {
     const t = await queryOne<Template>("SELECT * FROM templates WHERE id = $1", [Number(b.id)]);
     if (!t) return NextResponse.json({ erro: "Template não encontrado" }, { status: 404 });
-    if (!podeAgente(sessao, t.agente_id))
+    if (!(await podeAgente(sessao, t.agente_id)))
       return NextResponse.json({ erro: "Sem acesso a este número." }, { status: 403 });
     if (t.status !== "APROVADO")
       return NextResponse.json({ erro: "Só é possível testar template APROVADO" }, { status: 400 });
@@ -101,7 +106,7 @@ export async function POST(req: NextRequest) {
 
   // Criação
   const agenteId = Number(b.agente_id);
-  if (!podeAgente(sessao, agenteId))
+  if (!(await podeAgente(sessao, agenteId)))
     return NextResponse.json({ erro: "Sem acesso a este número." }, { status: 403 });
   const a = await agenteMeta(agenteId);
   if (!a) return NextResponse.json({ erro: "Agente Meta não encontrado" }, { status: 404 });
@@ -168,7 +173,7 @@ export async function DELETE(req: NextRequest) {
   const id = Number(new URL(req.url).searchParams.get("id"));
   const t = await queryOne<Template>("SELECT * FROM templates WHERE id = $1", [id]);
   if (!t) return NextResponse.json({ erro: "Não encontrado" }, { status: 404 });
-  if (!podeAgente(s, t.agente_id))
+  if (!(await podeAgente(s, t.agente_id)))
     return NextResponse.json({ erro: "Sem acesso a este número." }, { status: 403 });
   const a = await agenteMeta(t.agente_id);
   if (a) await excluirTemplateMeta(a.meta_waba_id || "", a.meta_token || "", t.nome);

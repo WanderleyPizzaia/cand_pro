@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { queryOne } from "@/lib/db";
 import { getSessao } from "@/lib/auth";
 import { importarCSV } from "@/lib/listas";
+import { agentesDaSessao } from "@/lib/escopo";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60; // importação grande (até 5000 linhas)
@@ -24,7 +25,8 @@ export async function POST(req: NextRequest) {
   if (!lista) return NextResponse.json({ erro: "Lista não encontrada." }, { status: 404 });
 
   // Escopo: candidato/equipe só importa em listas do próprio número.
-  if (s.escopoAgentes && !s.escopoAgentes.includes(lista.agente_id))
+  const meus = await agentesDaSessao(s);
+  if (meus && !meus.includes(lista.agente_id))
     return NextResponse.json({ erro: "Sem acesso a esta lista." }, { status: 403 });
 
   const texto = await req.text();

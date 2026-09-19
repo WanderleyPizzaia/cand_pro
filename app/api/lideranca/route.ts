@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { query, queryOne } from "@/lib/db";
 import { getSessao } from "@/lib/auth";
 import { backfillGeo } from "@/lib/geo";
+import { agentesDaSessao } from "@/lib/escopo";
 
 export const dynamic = "force-dynamic";
 
@@ -13,11 +14,12 @@ export async function GET() {
   if (!sessao) return NextResponse.json({ erro: "Sem sessão" }, { status: 401 });
 
   const ehLider = sessao.perfil === "LIDER";
-  const bound = sessao.perfil !== "ADMIN" && !!sessao.escopoAgentes;
+  const meus = await agentesDaSessao(sessao);
+  const bound = meus !== null;
   const escLider = ehLider ? `AND criado_por = '${sessao.uid}'` : "";
   // Vinculado: escopa aos agentes do seu candidato.
   const escAgente = bound
-    ? `AND agente_id IN (${(sessao.escopoAgentes!.length ? sessao.escopoAgentes! : [-1]).join(",")})`
+    ? `AND agente_id IN (${(meus!.length ? meus! : [-1]).join(",")})`
     : "";
 
   try {

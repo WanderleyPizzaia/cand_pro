@@ -344,7 +344,7 @@ async function limparDemoAntiga() {
 // aí o próximo boot roda as migrações uma vez e volta a pular. Isto é o que
 // deixa o app rápido: sem o gate, cada lambda fria repetia ~50 comandos DDL +
 // seeds antes da 1ª consulta (o "demora no primeiro clique").
-const SCHEMA_V = "2026-09-14.login-limite";
+const SCHEMA_V = "2026-09-19.usuario-agentes";
 
 async function inicializar() {
   // Gate barato: garante a tabela config e, se o schema já está na versão
@@ -585,16 +585,25 @@ async function inicializar() {
       agente_id BIGINT PRIMARY KEY,
       cursor    BIGINT NOT NULL DEFAULT 0
     )`);
-  // Vínculo atendente ↔ número (agente): o atendente SÓ vê/recebe conversas dos
-  // números vinculados a ele. Sem vínculo = não recebe nada.
+  // Vínculo usuário ↔ número (agente). Nasceu só para atendente
+  // (atendente_agentes); hoje vale para qualquer perfil: quem tem números
+  // marcados enxerga exatamente esses. Renomeia a tabela antiga se existir.
   await pool.query(`
-    CREATE TABLE IF NOT EXISTS atendente_agentes (
+    DO $$
+    BEGIN
+      IF to_regclass('public.atendente_agentes') IS NOT NULL
+         AND to_regclass('public.usuario_agentes') IS NULL THEN
+        ALTER TABLE atendente_agentes RENAME TO usuario_agentes;
+      END IF;
+    END $$;`);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS usuario_agentes (
       usuario_id BIGINT NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
       agente_id  BIGINT NOT NULL REFERENCES agentes(id) ON DELETE CASCADE,
       PRIMARY KEY (usuario_id, agente_id)
     )`);
   await pool.query(
-    `CREATE INDEX IF NOT EXISTS idx_atendente_agentes_agente ON atendente_agentes (agente_id)`
+    `CREATE INDEX IF NOT EXISTS idx_usuario_agentes_agente ON usuario_agentes (agente_id)`
   );
   // Respostas rápidas (canned) do atendimento: atalho (ex.: "saudacao") + texto.
   // Compartilhadas pela equipe. Usadas digitando "/atalho" no campo de resposta.

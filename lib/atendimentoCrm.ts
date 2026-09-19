@@ -35,7 +35,7 @@ export async function atendentesOnline(
 ): Promise<{ id: number; nome: string }[]> {
   return query<{ id: number; nome: string }>(
     `SELECT u.id, u.nome FROM usuarios u
-       JOIN atendente_agentes va ON va.usuario_id = u.id AND va.agente_id = $2
+       JOIN usuario_agentes va ON va.usuario_id = u.id AND va.agente_id = $2
       WHERE u.perfil = 'ATENDENTE'
         AND u.disponivel = true
         AND u.visto_em IS NOT NULL
@@ -45,25 +45,26 @@ export async function atendentesOnline(
   );
 }
 
-// Números (agentes) que um atendente pode operar.
-export async function agentesDoAtendente(usuarioId: number): Promise<number[]> {
+// Números (agentes) marcados para um usuário. Vale para qualquer perfil:
+// quem tem números marcados enxerga exatamente esses.
+export async function agentesDoUsuario(usuarioId: number): Promise<number[]> {
   const r = await query<{ agente_id: number }>(
-    "SELECT agente_id FROM atendente_agentes WHERE usuario_id = $1 ORDER BY agente_id",
+    "SELECT agente_id FROM usuario_agentes WHERE usuario_id = $1 ORDER BY agente_id",
     [usuarioId]
   );
   return r.map((x) => x.agente_id);
 }
 
-// Redefine os números vinculados a um atendente (substitui o conjunto).
-export async function definirAgentesDoAtendente(
+// Redefine os números vinculados a um usuário (substitui o conjunto).
+export async function definirAgentesDoUsuario(
   usuarioId: number,
   agenteIds: number[]
 ): Promise<void> {
-  await execute("DELETE FROM atendente_agentes WHERE usuario_id = $1", [usuarioId]);
+  await execute("DELETE FROM usuario_agentes WHERE usuario_id = $1", [usuarioId]);
   const ids = [...new Set(agenteIds.filter((n) => Number.isInteger(n) && n > 0))];
   for (const ag of ids) {
     await execute(
-      `INSERT INTO atendente_agentes (usuario_id, agente_id) VALUES ($1, $2)
+      `INSERT INTO usuario_agentes (usuario_id, agente_id) VALUES ($1, $2)
        ON CONFLICT DO NOTHING`,
       [usuarioId, ag]
     );

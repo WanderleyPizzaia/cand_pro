@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { queryOne, Usuario } from "@/lib/db";
 import { conferirSenha, definirCookieSessao, Perfil } from "@/lib/auth";
-import { agentesDoCandidato } from "@/lib/metas";
-import { agentesDoAtendente } from "@/lib/atendimentoCrm";
 import {
   ipDoCliente,
   loginBloqueado,
@@ -49,22 +47,13 @@ export async function POST(req: NextRequest) {
     onboarded: !!u.onboarded,
   };
 
-  // Atendente: escopo pelos NÚMEROS vinculados (atendente_agentes). Só vê/recebe
-  // conversas desses agentes. Sem vínculo => escopo vazio (não vê nada).
-  if (u.perfil === "ATENDENTE") {
-    sessao.escopoAgentes = await agentesDoAtendente(u.id);
-  }
-
   // Isolamento por candidato: candidato real (por nome) OU usuário de equipe
   // vinculado (candidato_escopo). ADMIN nunca é escopado (vê tudo).
   if (u.perfil !== "ADMIN" && u.perfil !== "ATENDENTE") {
     const alvo = (
       u.candidato_escopo || (u.perfil === "CANDIDATO" ? u.nome : "")
     ).trim();
-    if (alvo) {
-      sessao.escopoCandidato = alvo;
-      sessao.escopoAgentes = await agentesDoCandidato(alvo, u.id);
-    }
+    if (alvo) sessao.escopoCandidato = alvo;
   }
 
   definirCookieSessao(sessao);

@@ -3,6 +3,7 @@ import { query, queryOne, execute, Agente, Pessoa, Template, TemplateVar, quotaE
 import { getSessao } from "@/lib/auth";
 import { getConfig } from "@/lib/config";
 import { normalizarNumero } from "@/lib/evolution";
+import { agentesDaSessao } from "@/lib/escopo";
 import {
   enviarMensagemAgente,
   enviarTemplateMeta,
@@ -81,9 +82,9 @@ export async function GET(req: NextRequest) {
 
   // Isolamento: coordenação vinculada só vê as campanhas do candidato dela.
   const s2 = getSessao();
-  const bound = s2 && s2.perfil !== "ADMIN" && s2.escopoAgentes;
-  const filtroCand = bound
-    ? `WHERE c.agente_id IN (${(s2!.escopoAgentes!.length ? s2!.escopoAgentes! : [-1]).join(",")})`
+  const meus = s2 ? await agentesDaSessao(s2) : [-1];
+  const filtroCand = meus
+    ? `WHERE c.agente_id IN (${(meus.length ? meus : [-1]).join(",")})`
     : "";
   const linhas = await query(
     `SELECT c.*, to_char(c.criado_em,'YYYY-MM-DD HH24:MI') AS criado_fmt,
@@ -130,7 +131,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ erro: "Agente não encontrado." }, { status: 404 });
 
   // Isolamento: usuário vinculado (candidato/equipe) só dispara pelos próprios números.
-  if (s.perfil !== "ADMIN" && s.escopoAgentes && !s.escopoAgentes.includes(agente.id)) {
+  const meusEnvio = await agentesDaSessao(s);
+  if (meusEnvio && !meusEnvio.includes(agente.id)) {
     return NextResponse.json(
       { erro: "Sem permissão para disparar por este número." },
       { status: 403 }

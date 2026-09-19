@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { query, queryOne, execute } from "@/lib/db";
 import { getSessao } from "@/lib/auth";
 import { backfillGeo, backfillGeoPorTelefone } from "@/lib/geo";
+import { agentesDaSessao } from "@/lib/escopo";
 
 export const dynamic = "force-dynamic";
 // O backfill de geo pode segurar a request; sem isto a rota herda o default da
@@ -21,14 +22,16 @@ export async function GET(req: NextRequest) {
   const agente = /^\d+$/.test(agenteRaw) ? Number(agenteRaw) : null; // só inteiro
   const ehLider = sessao.perfil === "LIDER";
   // Isolamento: candidato/equipe vinculado só vê os agentes do seu terreno (ignora ?agente da URL).
-  const bound = sessao.perfil !== "ADMIN" && !!sessao.escopoAgentes;
+  const meus = await agentesDaSessao(sessao);
+  const bound = meus !== null;
+  const meusIds = (meus && meus.length ? meus : [-1]).join(",");
   // Só o ADMIN enxerga o cruzamento de todos os candidatos ("Todos os candidatos").
   // Candidato/equipe: mapa exclusivo do seu gabinete (nunca vê o do outro).
   const ehGlobal = sessao.perfil === "ADMIN";
   const escLider = ehLider ? `AND criado_por = '${sessao.uid}'` : "";
   // `agente` é validado como inteiro acima -> seguro interpolar.
   const escAgente = bound
-    ? `AND agente_id IN (${(sessao.escopoAgentes!.length ? sessao.escopoAgentes! : [-1]).join(",")})`
+    ? `AND agente_id IN (${meusIds})`
     : agente
     ? `AND agente_id = ${agente}`
     : "";
@@ -57,7 +60,7 @@ export async function GET(req: NextRequest) {
 
   // Lista de candidatos para o filtro. Isolamento: bound só vê os seus agentes.
   const filtroAgLista = bound
-    ? `AND a.id IN (${(sessao.escopoAgentes!.length ? sessao.escopoAgentes! : [-1]).join(",")})`
+    ? `AND a.id IN (${meusIds})`
     : "";
   const agentes = await query<{ id: number; candidato: string; total: number }>(
     `SELECT a.id, a.candidato, COUNT(p.id) AS total

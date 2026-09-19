@@ -88,22 +88,25 @@ function Avatar({ u, size = 36 }: { u: Usuario; size?: number }) {
   );
 }
 
-// Seleção dos números (agentes) que um atendente pode operar.
+// Seleção dos números (agentes) que o usuário enxerga. Vale para qualquer
+// perfil: marcou números, vê exatamente esses; sem marcar, segue o gabinete.
 function NumerosPicker({
   agentes,
   sel,
   onChange,
+  atendente = false,
 }: {
   agentes: AgenteOpt[];
   sel: number[];
   onChange: (ids: number[]) => void;
+  atendente?: boolean;
 }) {
   function toggle(id: number) {
     onChange(sel.includes(id) ? sel.filter((x) => x !== id) : [...sel, id]);
   }
   return (
     <div className="field" style={{ gridColumn: "1 / -1" }}>
-      <label>Números que este atendente atende</label>
+      <label>Números que este usuário enxerga</label>
       {agentes.length === 0 ? (
         <span style={{ fontSize: 12, color: "var(--muted)" }}>
           Nenhum número cadastrado. Cadastre um agente em WhatsApp → Agentes.
@@ -121,8 +124,9 @@ function NumerosPicker({
                   padding: "6px 12px",
                   borderRadius: 8,
                   border: "1px solid var(--border, #e3e6ec)",
-                  background: on ? "var(--brand, #1f4fd6)" : "var(--card, #fff)",
-                  color: on ? "#fff" : "inherit",
+                  background: on ? "var(--accent)" : "var(--panel-2)",
+                  color: on ? "var(--ink)" : "inherit",
+                  minHeight: 38,
                   fontSize: 13,
                   fontWeight: 600,
                   cursor: "pointer",
@@ -137,7 +141,12 @@ function NumerosPicker({
         </div>
       )}
       <span style={{ fontSize: 11.5, color: "var(--muted)", marginTop: 4 }}>
-        O atendente só vê e recebe conversas dos números marcados.
+        {sel.length === 0
+          ? atendente
+            ? "Sem número marcado o atendente não recebe nenhuma conversa."
+            : "Nenhum marcado: o usuário segue os números do gabinete acima."
+          : `Vê ${sel.length} número(s): conversas, contatos, mapa e disparos só desses.`}
+        {" "}Vale na hora, sem precisar sair e entrar de novo.
       </span>
     </div>
   );
@@ -244,9 +253,9 @@ export default function UsuariosCliente({ meuId, admin = true }: { meuId: number
   }
 
   async function salvarEdicao(id: number) {
-    // Só envia o vínculo quando o perfil é Atendente (senão limparia à toa).
+    // ADMIN vê tudo: não faz sentido guardar números para ele.
     const corpo: any = { id, nome: edit.nome, email: edit.email, perfil: edit.perfil, candidato_escopo: edit.candidato_escopo };
-    if (edit.perfil === "ATENDENTE") corpo.agentes = edit.agentes;
+    if (edit.perfil !== "ADMIN") corpo.agentes = edit.agentes;
     const ok = await patch(corpo);
     if (ok) {
       setEditId(null);
@@ -446,10 +455,11 @@ export default function UsuariosCliente({ meuId, admin = true }: { meuId: number
               ))}
             </select>
           </div>
-          {novo.perfil === "ATENDENTE" && (
+          {novo.perfil !== "ADMIN" && (
             <NumerosPicker
               agentes={agentesDisp}
               sel={novo.agentes}
+              atendente={novo.perfil === "ATENDENTE"}
               onChange={(ids) => setNovo((s) => ({ ...s, agentes: ids }))}
             />
           )}
@@ -584,11 +594,12 @@ export default function UsuariosCliente({ meuId, admin = true }: { meuId: number
                             <option key={c} value={c}>Gabinete: {c}</option>
                           ))}
                         </select>
-                        {edit.perfil === "ATENDENTE" && (
-                          <div style={{ marginTop: 8, minWidth: 240 }}>
+                        {edit.perfil !== "ADMIN" && (
+                          <div style={{ marginTop: 8 }}>
                             <NumerosPicker
                               agentes={agentesDisp}
                               sel={edit.agentes}
+                              atendente={edit.perfil === "ATENDENTE"}
                               onChange={(ids) => setEdit((s) => ({ ...s, agentes: ids }))}
                             />
                           </div>
@@ -597,7 +608,7 @@ export default function UsuariosCliente({ meuId, admin = true }: { meuId: number
                     ) : (
                       <span className="tag">
                         {rotulo(u.perfil)}
-                        {u.perfil === "ATENDENTE" && u.agentes && u.agentes.length > 0 && (
+                        {u.agentes && u.agentes.length > 0 && (
                           <span style={{ color: "var(--muted)", fontWeight: 400 }}>
                             {" "}· {u.agentes.length} nº
                           </span>

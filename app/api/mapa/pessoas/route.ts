@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { getSessao } from "@/lib/auth";
+import { agentesDaSessao } from "@/lib/escopo";
 
 export const dynamic = "force-dynamic";
 
@@ -23,10 +24,11 @@ export async function GET(req: NextRequest) {
     params.push(String(s.uid));
     extra += ` AND p.criado_por = $${i++}`;
   }
-  const bound = s.perfil !== "ADMIN" && !!s.escopoAgentes;
+  const meus = await agentesDaSessao(s);
+  const bound = meus !== null;
   if (bound) {
     // Candidato/equipe vinculado: só o terreno dele (ignora ?agente da URL).
-    extra += ` AND p.agente_id IN (${(s.escopoAgentes!.length ? s.escopoAgentes! : [-1]).join(",")})`;
+    extra += ` AND p.agente_id IN (${(meus!.length ? meus! : [-1]).join(",")})`;
   } else if (agente) {
     extra += ` AND p.agente_id = ${agente}`; // inteiro validado
   }

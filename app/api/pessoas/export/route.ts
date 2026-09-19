@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query, Pessoa } from "@/lib/db";
 import { getSessao } from "@/lib/auth";
+import { agentesDaSessao } from "@/lib/escopo";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60; // export de dezenas de milhares de linhas
@@ -55,7 +56,8 @@ export async function GET(req: NextRequest) {
     // Postgres tenta converter um criado_por textual e estoura -> 500 no export).
     "FROM pessoas p LEFT JOIN usuarios u ON u.id = (CASE WHEN p.criado_por ~ '^[0-9]+$' THEN p.criado_por::bigint END) ";
 
-  const bound = sessao.perfil !== "ADMIN" && !!sessao.escopoAgentes;
+  const meus = await agentesDaSessao(sessao);
+  const bound = meus !== null;
 
   const params: any[] = [];
   const cond: string[] = [];
@@ -63,7 +65,7 @@ export async function GET(req: NextRequest) {
     params.push(String(sessao.uid));
     cond.push(`p.criado_por = $${params.length}`);
   } else if (bound) {
-    const ids = sessao.escopoAgentes!.length ? sessao.escopoAgentes! : [-1];
+    const ids = meus!.length ? meus! : [-1];
     cond.push(`p.agente_id IN (${ids.join(",")})`);
   }
 

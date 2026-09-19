@@ -6,6 +6,7 @@ import PessoaAcoes from "./PessoaAcoes";
 import BuscaPessoas from "./BuscaPessoas";
 import Icon from "../../components/Icon";
 import FotoPessoa from "../../components/FotoPessoa";
+import { agentesDaSessao } from "@/lib/escopo";
 
 export const dynamic = "force-dynamic";
 
@@ -50,8 +51,9 @@ export default async function PessoasPage({
 
   // Isolamento: candidato/equipe vinculado só vê os agentes do próprio terreno
   // (nunca os concorrentes). ADMIN vê todos.
-  const bound = sessao.perfil !== "ADMIN" && !ehLider && !!sessao.escopoAgentes;
-  const boundIds = bound ? (sessao.escopoAgentes!.length ? sessao.escopoAgentes! : [-1]) : null;
+  const meusAgentes = await agentesDaSessao(sessao);
+  const bound = !ehLider && meusAgentes !== null;
+  const boundIds = bound ? (meusAgentes!.length ? meusAgentes! : [-1]) : null;
 
   // Seletor de candidatos: lider não vê; bound vê SÓ os seus; admin vê todos.
   const candidatos = ehLider

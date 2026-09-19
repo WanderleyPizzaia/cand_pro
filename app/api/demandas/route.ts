@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query, queryOne, execute } from "@/lib/db";
 import { getSessao } from "@/lib/auth";
+import { agentesDaSessao } from "@/lib/escopo";
 
 export const dynamic = "force-dynamic";
 
@@ -23,9 +24,9 @@ export async function GET(req: NextRequest) {
   const q = (searchParams.get("q") ?? "").trim();
   // Isolamento: candidato/equipe vinculado vê demandas do eleitor do seu terreno
   // (ou que ele mesmo criou).
-  const bound = s.perfil !== "ADMIN" && s.escopoAgentes;
-  const escCand = bound
-    ? `AND (e.agente_id IN (${(s.escopoAgentes!.length ? s.escopoAgentes! : [-1]).join(",")}) OR d.criado_por = '${s.uid}')`
+  const meus = await agentesDaSessao(s);
+  const escCand = meus
+    ? `AND (e.agente_id IN (${(meus.length ? meus : [-1]).join(",")}) OR d.criado_por = '${s.uid}')`
     : "";
 
   const linhas = await query(

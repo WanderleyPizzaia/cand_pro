@@ -3,6 +3,7 @@ import { execute } from "@/lib/db";
 import { getSessao } from "@/lib/auth";
 import { buscarCidade } from "@/lib/cidades";
 import { regiaoMaisProxima } from "@/lib/opcoes";
+import { agentesDaSessao } from "@/lib/escopo";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60; // importações grandes (milhares de linhas)
@@ -87,7 +88,8 @@ export async function POST(req: NextRequest) {
   //  - ?candidato=<id> escolhido na aba → usa esse (se o usuário tiver acesso);
   //  - senão, usuário escopado (candidato/equipe) → 1º número do escopo;
   //  - admin sem aba selecionada → sem vínculo (aparece em "Todos").
-  const esc = sessao.escopoAgentes && sessao.escopoAgentes.length ? sessao.escopoAgentes : null;
+  const meus = await agentesDaSessao(sessao);
+  const esc = meus && meus.length ? meus : null;
   const candParam = Number(new URL(req.url).searchParams.get("candidato")) || 0;
   let agenteId: number | null = null;
   if (candParam > 0 && (sessao.perfil === "ADMIN" || (esc && esc.includes(candParam)))) {

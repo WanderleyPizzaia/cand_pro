@@ -3,7 +3,7 @@ import { query, queryOne, execute, Pessoa } from "@/lib/db";
 import { buscarCidade } from "@/lib/cidades";
 import { regiaoMaisProxima } from "@/lib/opcoes";
 import { getSessao } from "@/lib/auth";
-import { resolverEscopo, filtroPessoas } from "@/lib/escopo";
+import { resolverEscopoAtual, filtroPessoas } from "@/lib/escopo";
 
 export const dynamic = "force-dynamic";
 
@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic";
 export async function GET(req: NextRequest) {
   const sessao = getSessao();
   if (!sessao) return NextResponse.json({ erro: "Sem sessão" }, { status: 401 });
-  const esc = resolverEscopo(sessao);
+  const esc = await resolverEscopoAtual(sessao);
 
   const id = Number(new URL(req.url).searchParams.get("id"));
   if (id) {

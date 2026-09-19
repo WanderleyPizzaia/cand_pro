@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query, queryOne, execute } from "@/lib/db";
 import { getSessao } from "@/lib/auth";
-import { resolverEscopo } from "@/lib/escopo";
+import { resolverEscopoAtual } from "@/lib/escopo";
 import { agenteIdDoUsuario } from "@/lib/agenteUsuario";
 import { buscarCidade } from "@/lib/cidades";
 import { regiaoMaisProxima } from "@/lib/opcoes";
@@ -31,7 +31,7 @@ export async function GET(req: NextRequest) {
   const s = getSessao();
   if (!s || !PERFIS.includes(s.perfil))
     return NextResponse.json({ erro: "Acesso negado" }, { status: 403 });
-  const esc = resolverEscopo(s);
+  const esc = await resolverEscopoAtual(s);
   const { where, params } = escopoSql(esc.agenteIds);
 
   const u = new URL(req.url);
@@ -81,7 +81,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ erro: "Acesso negado" }, { status: 403 });
   const b = await req.json().catch(() => ({}));
   const acao = (b.acao || "criar").toString();
-  const esc = resolverEscopo(s);
+  const esc = await resolverEscopoAtual(s);
   const agentePadrao = esc.agenteIds && esc.agenteIds.length ? esc.agenteIds[0] : await agenteIdDoUsuario(s.uid, s.nome);
 
   // Garante que a pauta pertence ao escopo (não-ADMIN não mexe em pauta de outro).
