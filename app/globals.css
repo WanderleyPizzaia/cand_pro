@@ -188,6 +188,62 @@ a {
   font-size: 14px;
 }
 
+/* Cabeçalho de página: título à esquerda, ações à direita. No celular vira
+   uma coluna e os botões se dividem a largura, em vez de espremer o título. */
+.page-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.page-head-txt {
+  min-width: 0; /* deixa o título quebrar em vez de empurrar as ações */
+}
+.page-head-acoes {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+/* Grupos de botões vindos de componentes entram na mesma linha do pai. */
+.page-head-acoes .acoes-sub {
+  display: contents;
+}
+.acoes-msg {
+  flex-basis: 100%;
+}
+@media (max-width: 860px) {
+  .page-head {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+  .page-head .page-sub {
+    margin-bottom: 0;
+  }
+  .page-head-acoes {
+    width: 100%;
+    gap: 8px;
+  }
+  /* Dois por linha, alvo de toque confortável. */
+  .page-head-acoes > .btn,
+  .page-head-acoes > a.btn,
+  .page-head-acoes .acoes-sub > .btn,
+  .page-head-acoes .acoes-sub > a.btn {
+    flex: 1 1 calc(50% - 4px);
+    min-width: 0;
+    min-height: 44px;
+    padding: 10px 12px;
+    font-size: 13.5px;
+    justify-content: center;
+  }
+  .page-head + .map-tabs,
+  .page-head + .busca-wrap {
+    margin-top: 14px;
+  }
+}
+
 /* ===== Cards / KPIs ===== */
 .kpis {
   display: grid;
@@ -376,8 +432,16 @@ textarea {
   gap: 12px;
   margin-top: 22px;
 }
+/* Só no rodapé de formulário o botão principal ocupa a linha inteira. */
+.actions .btn-primary {
+  flex: 1;
+}
 .btn {
-  border: none;
+  /* Sem variante o botão era o cinza padrão do navegador; agora nasce
+     no estilo "secundário" e as variantes sobrescrevem abaixo. */
+  background: var(--panel-2);
+  color: var(--text);
+  border: 1px solid var(--border);
   border-radius: 10px;
   padding: 13px 22px;
   font-size: 14px;
@@ -403,7 +467,7 @@ h3 svg {
 .btn-primary {
   background: var(--accent);
   color: #fff;
-  flex: 1;
+  border-color: transparent;
 }
 .btn-primary:hover {
   background: var(--accent-2);
@@ -1729,7 +1793,7 @@ tr:hover td {
 .fin-card.saldo { background: linear-gradient(135deg,#0a2c5e,#034ea2); border: none; }
 .fin-card.saldo span, .fin-card.saldo small { color: #bcd3f2; }
 .fin-card.saldo b { color: #fff; }
-.fin-nota { display: flex; gap: 8px; align-items: flex-start; background: #eaf4ee; border: 1px solid #bfe3cc; color: #0a5f34; border-radius: 10px; padding: 12px 14px; font-size: 13px; line-height: 1.5; margin-bottom: 16px; }
+.fin-nota { display: flex; gap: 8px; align-items: flex-start; background: rgba(52, 211, 153, 0.10); border: 1px solid rgba(52, 211, 153, 0.30); color: var(--green); border-radius: 10px; padding: 12px 14px; font-size: 13px; line-height: 1.5; margin-bottom: 16px; }
 .fin-form-row { display: grid; grid-template-columns: 180px 140px 1fr auto; gap: 8px; margin-top: 8px; }
 @media (max-width: 720px) { .fin-form-row { grid-template-columns: 1fr 1fr; } }
 .fin-lista { display: flex; flex-direction: column; gap: 6px; }
@@ -4185,22 +4249,22 @@ span.dash-avatar {
 /* ===== Configure seu gabinete (primeiros passos) ===== */
 .pp-wrap { max-width: 720px; }
 .pp-progresso { margin-bottom: 16px; }
-.pp-bar { height: 10px; background: var(--linha, #e5e8ef); border-radius: 6px; overflow: hidden; }
-.pp-bar-fill { height: 100%; background: linear-gradient(90deg, var(--brand, #034ea2), var(--green, #0b9247)); border-radius: 6px; transition: width .4s ease; }
+.pp-bar { height: 10px; background: var(--panel-2); border-radius: 6px; overflow: hidden; }
+.pp-bar-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--green)); border-radius: 6px; transition: width .4s ease; }
 .pp-conta { font-size: 12.5px; color: var(--muted); margin-top: 6px; font-weight: 600; }
 .pp-lista { display: flex; flex-direction: column; gap: 12px; }
-.pp-item { display: flex; align-items: center; gap: 14px; background: #fff; border: 1px solid var(--linha, #e5e8ef); border-radius: 12px; padding: 16px; }
-.pp-item.feito { background: #f4faf6; border-color: #cfe9d8; }
-.pp-ico { flex: none; width: 44px; height: 44px; border-radius: 11px; display: grid; place-items: center; background: var(--paper, #f6f8fb); color: var(--brand, #034ea2); }
-.pp-item.feito .pp-ico { background: var(--green, #0b9247); color: #fff; }
+.pp-item { display: flex; align-items: center; gap: 14px; background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 16px; }
+.pp-item.feito { background: var(--panel-2); border-color: rgba(52, 211, 153, 0.35); }
+.pp-ico { flex: none; width: 44px; height: 44px; border-radius: 11px; display: grid; place-items: center; background: var(--bg-2); color: var(--accent); }
+.pp-item.feito .pp-ico { background: var(--green); color: var(--ink); }
 .pp-txt { flex: 1; min-width: 0; }
 .pp-tit { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 15.5px; }
-.pp-n { flex: none; width: 20px; height: 20px; border-radius: 50%; background: var(--brand, #034ea2); color: #fff; font-size: 11px; font-family: var(--mono, monospace); display: grid; place-items: center; }
-.pp-item.feito .pp-n { background: var(--green, #0b9247); }
-.pp-badge { font-size: 10.5px; font-weight: 700; color: var(--green, #0b9247); background: #e6f6ec; border: 1px solid #b7e3c6; border-radius: 999px; padding: 2px 8px; text-transform: uppercase; letter-spacing: .03em; }
+.pp-n { flex: none; width: 20px; height: 20px; border-radius: 50%; background: var(--accent); color: var(--ink); font-size: 11px; font-family: var(--mono, monospace); display: grid; place-items: center; font-weight: 800; }
+.pp-item.feito .pp-n { background: var(--green); color: var(--ink); }
+.pp-badge { font-size: 10.5px; font-weight: 700; color: var(--green); background: rgba(52, 211, 153, 0.14); border: 1px solid rgba(52, 211, 153, 0.35); border-radius: 999px; padding: 2px 8px; text-transform: uppercase; letter-spacing: .03em; }
 .pp-desc { font-size: 13px; color: var(--muted); margin-top: 3px; line-height: 1.45; }
 .pp-cta { flex: none; white-space: nowrap; }
-.pp-pronto { margin-top: 16px; background: #e6f6ec; border: 1px solid #b7e3c6; color: #0a7d3c; border-radius: 12px; padding: 14px 16px; font-size: 14px; display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.pp-pronto { margin-top: 16px; background: rgba(52, 211, 153, 0.12); border: 1px solid rgba(52, 211, 153, 0.35); color: var(--green); border-radius: 12px; padding: 14px 16px; font-size: 14px; display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
 @media (max-width: 640px) { .pp-item { flex-wrap: wrap; } .pp-cta { width: 100%; text-align: center; } }
 
 /* ===== Pauta: formulário público ===== */
@@ -4212,8 +4276,8 @@ span.dash-avatar {
 .pt-acoes { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 10px; }
 .pt-conversa { display: flex; gap: 6px; align-items: center; margin-left: auto; }
 .pt-conversa input { width: 190px; }
-.pt-msg { background: #e6f0fb; border: 1px solid #cfe0f5; color: #0a3d78; border-radius: 8px; padding: 7px 10px; font-size: 12.5px; margin-bottom: 10px; }
-.pt-nova { background: var(--card, #fff); border: 1px solid var(--linha, #e5e8ef); border-radius: 12px; padding: 14px; margin-bottom: 12px; display: flex; flex-direction: column; gap: 8px; }
+.pt-msg { background: rgba(224, 178, 77, 0.10); border: 1px solid rgba(224, 178, 77, 0.30); color: var(--accent); border-radius: 8px; padding: 7px 10px; font-size: 12.5px; margin-bottom: 10px; }
+.pt-nova { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 14px; margin-bottom: 12px; display: flex; flex-direction: column; gap: 8px; }
 .pt-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 @media (max-width: 560px) { .pt-grid2 { grid-template-columns: 1fr; } .pt-conversa { margin-left: 0; width: 100%; } .pt-conversa input { flex: 1; width: auto; } }
 .pt-demo { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px; }
@@ -4384,3 +4448,148 @@ input:focus, select:focus, textarea:focus {
 .ml-help:hover { text-decoration: underline; }
 @media (prefers-reduced-motion: reduce) { .ml-aura, .ml-rings, .ml-card, .ml-status-dot { animation: none; } }
 @media (max-width: 460px) { .ml-card { padding: 32px 22px 24px; border-radius: 22px; } .ml-word { font-size: 29px; } .ml-rings { width: 620px; height: 620px; } }
+
+/* ============================================================
+   Refino mobile — passada geral no app (toque, empilhamento,
+   densidade). Fica no fim do arquivo de propósito: são ajustes
+   que precisam vencer as regras de desktop acima.
+   ============================================================ */
+@media (max-width: 860px) {
+  /* Alvo de toque: nada de botão raso no celular. */
+  .btn {
+    min-height: 44px;
+  }
+  .btn-sm,
+  .at-btn,
+  .mini {
+    min-height: 38px;
+  }
+  /* Rodapé de formulário: um botão por linha, largura cheia. */
+  .actions {
+    flex-direction: column;
+    gap: 10px;
+  }
+  .actions .btn {
+    width: 100%;
+  }
+  /* Cartão de agente: ação principal na linha inteira, links embaixo. */
+  .agente-acoes {
+    gap: 10px;
+  }
+  .agente-acoes .btn {
+    flex: 1 1 100%;
+    justify-content: center;
+  }
+  /* Comunidades: botão inteiro e o "agente posta" embaixo. */
+  .cc-acoes {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+  .cc-acoes .btn {
+    width: 100%;
+    justify-content: center;
+  }
+  .cc-toggle {
+    justify-content: center;
+  }
+  .comun-add-row {
+    flex-direction: column;
+  }
+  .comun-add-row .btn {
+    width: 100%;
+  }
+  /* Trilho de visões do Atendimento rola sem a barra cinza aparecendo. */
+  .at-rail {
+    scrollbar-width: none;
+  }
+  .at-rail::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+@media (max-width: 560px) {
+  /* Pautas: campo do WhatsApp e o botão de IA um sobre o outro. */
+  .pt-conversa {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .pt-conversa input,
+  .pt-conversa .btn,
+  .pt-conversa button {
+    width: 100%;
+  }
+}
+
+@media (max-width: 640px) {
+  /* Contatos: dois cartões por linha em vez de um gigante por tela. */
+  .pessoa-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+  .pessoa-card {
+    padding: 14px 10px 12px;
+    border-radius: 14px;
+  }
+  .pessoa-foto {
+    width: 76px;
+    height: 76px;
+    margin-bottom: 12px;
+  }
+  .pessoa-inicial {
+    font-size: 28px;
+  }
+  .pessoa-nome {
+    font-size: 13.5px;
+    overflow-wrap: anywhere;
+  }
+  .pessoa-meta,
+  .pessoa-local,
+  .pessoa-cand {
+    font-size: 11.5px;
+  }
+  .pessoa-acoes {
+    gap: 4px;
+  }
+  /* Ação principal na linha inteira; editar/excluir dividem a de baixo. */
+  .pessoa-acoes .pa-btn {
+    flex: 1 1 calc(50% - 2px);
+    justify-content: center;
+    min-height: 34px;
+  }
+  .pessoa-acoes .pa-btn:first-child {
+    flex-basis: 100%;
+  }
+}
+
+@media (max-width: 860px) {
+  /* Botão de enviar solto dentro de um formulário: linha inteira. */
+  form > button.btn[type="submit"],
+  .disp-form > button.btn {
+    width: 100%;
+  }
+  /* Dock: rótulo inteiro e uma pista de que a barra rola de lado. */
+  .mobile-dock-item span {
+    white-space: nowrap;
+  }
+  .mobile-dock-track {
+    scroll-snap-type: x proximity;
+    -webkit-mask-image: linear-gradient(
+      90deg,
+      transparent 0,
+      #000 12px,
+      #000 calc(100% - 18px),
+      transparent 100%
+    );
+    mask-image: linear-gradient(
+      90deg,
+      transparent 0,
+      #000 12px,
+      #000 calc(100% - 18px),
+      transparent 100%
+    );
+  }
+  .mobile-dock-item {
+    scroll-snap-align: center;
+  }
+}

@@ -89,14 +89,13 @@ export default function ImportExport() {
   }
 
   return (
-    <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-      <a href={exportHref} className="btn btn-ghost" style={{ flex: "none" }}>
+    <div className="acoes-sub">
+      <a href={exportHref} className="btn btn-ghost">
         <Icon name="download" size={16} /> Exportar CSV
       </a>
       <button
         type="button"
         className="btn btn-ghost"
-        style={{ flex: "none" }}
         onClick={() => inputRef.current?.click()}
         disabled={importando}
       >
@@ -105,7 +104,6 @@ export default function ImportExport() {
       <button
         type="button"
         className="btn btn-ghost"
-        style={{ flex: "none" }}
         onClick={sincronizarFotos}
         disabled={sincFotos}
         title="Busca foto de perfil do WhatsApp para cada contato"
@@ -121,6 +119,7 @@ export default function ImportExport() {
       />
       {msg && (
         <span
+          className="acoes-msg"
           style={{
             fontSize: 13,
             fontWeight: 600,

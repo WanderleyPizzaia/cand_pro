@@ -489,25 +489,25 @@ export default function AtendimentoCliente() {
         .at-view{display:flex;align-items:center;justify-content:space-between;gap:8px;
           padding:10px 12px;border-radius:10px;border:1px solid var(--border,#e3e6ec);
           background:var(--card,#fff);cursor:pointer;font-size:13.5px;font-weight:600;color:inherit;text-align:left}
-        .at-view.ativo{background:var(--brand,#1f4fd6);color:#fff;border-color:transparent}
-        .at-view .cnt{font-size:11px;font-weight:700;background:rgba(0,0,0,.08);border-radius:20px;padding:1px 8px}
-        .at-view.ativo .cnt{background:rgba(255,255,255,.25)}
+        .at-view.ativo{background:var(--accent);color:var(--ink);border-color:transparent;font-weight:700}
+        .at-view .cnt{font-size:11px;font-weight:700;background:rgba(255,255,255,.10);border-radius:20px;padding:1px 8px}
+        .at-view.ativo .cnt{background:rgba(0,0,0,.18)}
         .at-presenca{margin-top:8px;display:flex;align-items:center;gap:8px;padding:10px 12px;
           border-radius:10px;border:1px solid var(--border,#e3e6ec);background:var(--card,#fff);
           cursor:pointer;font-size:12.5px;font-weight:600}
         .at-dot{width:9px;height:9px;border-radius:50%;flex:none}
-        .at-dot.on{background:#2c9c4b} .at-dot.off{background:#9aa1ad}
+        .at-dot.on{background:var(--green)} .at-dot.off{background:var(--muted)}
         .at-badge{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;
           padding:2px 7px;border-radius:20px}
-        .at-badge.fila{background:#fdeede;color:#b5651a}
-        .at-badge.minha{background:#e3f0ff;color:#1f5fbf}
-        .at-badge.outro{background:#efeaf7;color:#6a4bb0}
-        .at-badge.resolv{background:#e6f4ec;color:#2c7a4b}
+        .at-badge.fila{background:rgba(245,196,81,.16);color:#f5c451}
+        .at-badge.minha{background:rgba(224,178,77,.16);color:var(--accent)}
+        .at-badge.outro{background:rgba(147,160,180,.16);color:var(--muted)}
+        .at-badge.resolv{background:rgba(52,211,153,.16);color:var(--green)}
         .at-acoes{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
         .at-btn{font-size:12px;font-weight:600;padding:5px 11px;border-radius:8px;
           border:1px solid var(--border,#e3e6ec);background:var(--card,#fff);cursor:pointer;color:inherit}
-        .at-btn.prim{background:var(--brand,#1f4fd6);color:#fff;border-color:transparent}
-        .at-btn.ok{background:#2c7a4b;color:#fff;border-color:transparent}
+        .at-btn.prim{background:var(--accent);color:var(--ink);border-color:transparent;font-weight:700}
+        .at-btn.ok{background:#14503f;color:#eaf7f1;border-color:#1c6b54}
         .at-btn:disabled{opacity:.5;cursor:not-allowed}
         .at-conv-sub{display:flex;align-items:center;gap:6px;margin-top:2px}
         .at-conv-atendente{font-size:11px;color:var(--muted,#6b7280)}
@@ -515,7 +515,7 @@ export default function AtendimentoCliente() {
         .at-eq-item{display:flex;align-items:center;gap:11px;padding:11px 13px;border:1px solid var(--border,#e3e6ec);
           border-radius:14px;background:var(--card,#fff)}
         .at-eq-av{position:relative;width:38px;height:38px;border-radius:50%;flex:none;display:flex;
-          align-items:center;justify-content:center;font-weight:700;font-size:14px;color:#fff;background:var(--brand,#1f4fd6)}
+          align-items:center;justify-content:center;font-weight:700;font-size:14px;color:var(--ink);background:var(--accent)}
         .at-eq-av .st-ring{position:absolute;right:-1px;bottom:-1px;width:12px;height:12px;border-radius:50%;
           border:2px solid var(--card,#fff)}
         .st-ring.on{background:#2c9c4b} .st-ring.busy{background:#e6a417} .st-ring.off{background:#b6bcc6}
@@ -524,13 +524,13 @@ export default function AtendimentoCliente() {
         .at-eq-sub{font-size:11.5px;color:var(--muted,#6b7280);margin-top:2px;white-space:nowrap;
           overflow:hidden;text-overflow:ellipsis}
         .st-txt{font-weight:700}
-        .st-txt.on{color:#2c9c4b} .st-txt.busy{color:#b5651a} .st-txt.off{color:#9aa1ad}
+        .st-txt.on{color:var(--green)} .st-txt.busy{color:#f5c451} .st-txt.off{color:var(--muted)}
         .at-eq-nums{display:flex;gap:16px;flex:none;text-align:center}
         .at-eq-num b{display:block;font-size:16px;font-weight:800;line-height:1;font-variant-numeric:tabular-nums}
         .at-eq-num span{font-size:9.5px;color:var(--muted,#6b7280);font-weight:700;text-transform:uppercase;letter-spacing:.03em}
-        .at-eq-num.now b{color:#1f5fbf} .at-eq-num.done b{color:#2c7a4b}
+        .at-eq-num.now b{color:var(--accent)} .at-eq-num.done b{color:var(--green)}
         .at-eq-item.clic{cursor:pointer;transition:border-color .15s,box-shadow .15s,transform .05s}
-        .at-eq-item.clic:hover{border-color:var(--brand,#1f4fd6);box-shadow:0 2px 10px rgba(31,79,214,.10)}
+        .at-eq-item.clic:hover{border-color:var(--accent);box-shadow:0 2px 10px rgba(224,178,77,.12)}
         .at-eq-item.clic:active{transform:scale(.995)}
         .at-filtro-atendente{margin-top:8px}
         .inbox-nao-lida-dot{display:inline-block;width:9px;height:9px;border-radius:50%;

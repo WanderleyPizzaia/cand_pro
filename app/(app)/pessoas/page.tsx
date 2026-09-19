@@ -123,8 +123,8 @@ export default async function PessoasPage({
 
   return (
     <>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <div>
+      <div className="page-head">
+        <div className="page-head-txt">
           <h1 className="page-title">
             <Icon name="users" /> Contatos
           </h1>
@@ -133,16 +133,16 @@ export default async function PessoasPage({
             {busca ? ` · busca "${busca}"` : ehLider ? " · seus cadastros" : candFiltro ? " · filtrado" : " na base"}
           </p>
         </div>
-        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+        <div className="page-head-acoes">
           <ImportExport />
-          <Link href="/cadastro" className="btn btn-primary" style={{ flex: "none" }}>
+          <Link href="/cadastro" className="btn btn-primary">
             <Icon name="plus" size={16} /> Cadastrar
           </Link>
         </div>
       </div>
 
       {!ehLider && candidatos.length > 0 && (
-        <div className="map-tabs" style={{ flexWrap: "wrap" }}>
+        <div className="map-tabs">
           <Link href={link("", 1)} className={`map-tab${!candFiltro ? " ativo" : ""}`}>
             Todos ({totalGeral})
           </Link>
