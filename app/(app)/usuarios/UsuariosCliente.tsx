@@ -463,20 +463,12 @@ export default function UsuariosCliente({ meuId, admin = true }: { meuId: number
       )}
 
       {/* Busca, filtro, ordenação e exportação */}
-      <div
-        style={{
-          display: "flex",
-          gap: 8,
-          alignItems: "center",
-          flexWrap: "wrap",
-          marginBottom: 12,
-        }}
-      >
+      <div className="filtro-barra">
         <input
           placeholder="Buscar por nome, e-mail ou gabinete…"
           value={busca}
           onChange={(e) => setBusca(e.target.value)}
-          style={{ flex: "1 1 260px", minWidth: 220 }}
+          style={{ flex: "1 1 260px", minWidth: 0 }}
         />
         <select
           value={filtroPerfil}
@@ -499,16 +491,16 @@ export default function UsuariosCliente({ meuId, admin = true }: { meuId: number
           <option value="cadastros">Mais cadastros</option>
           <option value="recentes">Mais recentes</option>
         </select>
-        <button type="button" className="btn btn-ghost" style={{ flex: "none" }} onClick={exportarCSV}>
+        <button type="button" className="btn btn-ghost" onClick={exportarCSV}>
           Exportar CSV
         </button>
-        <span style={{ fontSize: 12.5, color: "var(--muted)" }}>
+        <span className="filtro-barra-conta">
           {visiveis.length} de {lista.length} usuário(s)
         </span>
       </div>
 
-      {/* Tabela */}
-      <div className="table-wrap">
+      {/* Tabela (no celular cada linha vira um cartão — ver .table-cartoes) */}
+      <div className="table-wrap table-cartoes">
         <table>
           <thead>
             <tr>
@@ -550,7 +542,7 @@ export default function UsuariosCliente({ meuId, admin = true }: { meuId: number
                       <Avatar u={u} />
                     )}
                   </td>
-                  <td style={{ fontWeight: 600 }}>
+                  <td data-rotulo="Nome" style={{ fontWeight: 600 }}>
                     {editando ? (
                       <input value={edit.nome} onChange={(e) => setE("nome", e.target.value)} />
                     ) : (
@@ -564,14 +556,14 @@ export default function UsuariosCliente({ meuId, admin = true }: { meuId: number
                       </>
                     )}
                   </td>
-                  <td>
+                  <td data-rotulo="E-mail">
                     {editando ? (
                       <input value={edit.email} onChange={(e) => setE("email", e.target.value)} />
                     ) : (
                       u.email
                     )}
                   </td>
-                  <td>
+                  <td data-rotulo="Perfil">
                     {editando ? (
                       <>
                         <select value={edit.perfil} onChange={(e) => setE("perfil", e.target.value)}>
@@ -613,7 +605,7 @@ export default function UsuariosCliente({ meuId, admin = true }: { meuId: number
                       </span>
                     )}
                   </td>
-                  <td style={{ color: u.ativo ? "var(--green)" : "var(--muted)" }}>
+                  <td data-rotulo="Status" style={{ color: u.ativo ? "var(--green)" : "var(--muted)" }}>
                     {u.ativo ? "Ativo" : "Inativo"}
                     {u.online && (
                       <span title="Online agora" style={{ marginLeft: 6, color: "var(--green)" }}>
@@ -622,15 +614,16 @@ export default function UsuariosCliente({ meuId, admin = true }: { meuId: number
                     )}
                   </td>
                   <td
+                    data-rotulo="Cadastros"
                     style={{ fontWeight: 600 }}
                     title="Contatos cadastrados por este usuário"
                   >
                     {u.cadastros ?? 0}
                   </td>
-                  <td>
+                  <td data-rotulo="Link">
                     <CopyLink path={`/form/${u.email}`} compact />
                   </td>
-                  <td style={{ color: "var(--muted)", fontSize: 12.5 }}>{u.criado_em}</td>
+                  <td data-rotulo="Criado em" style={{ color: "var(--muted)", fontSize: 12.5 }}>{u.criado_em}</td>
                   <td>
                     <div className="acoes">
                       {editando ? (
