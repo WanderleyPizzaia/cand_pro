@@ -1,4 +1,4 @@
-import { query, queryOne, execute, Agente } from "./db";
+import { query, queryOne, Agente } from "./db";
 import { buscarMensagensPagina, type MsgEvolution } from "./evolution";
 import { capturarEleitor } from "./eleitores";
 import { distribuir } from "./atendimentoCrm";
@@ -14,6 +14,9 @@ import { responderIA } from "./responder";
 // ============================================================
 
 const PAGINAS_POR_CICLO = 3; // 50 mensagens por página
+// Janela sempre varrida, para não perder mensagem que a Evolution registra
+// fora de ordem (recebida antiga aparecendo depois de uma enviada recente).
+const JANELA_BUSCA_SEG = 30 * 60;
 // Só responde mensagens recentes: importar histórico não deve disparar IA.
 const JANELA_RESPOSTA_SEG = 15 * 60;
 // Primeira vez para um número novo: pega a última hora, não a vida inteira.
@@ -48,7 +51,13 @@ export async function puxarNovasDoAgente(
     [agente.id]
   );
   const agora = Math.floor(Date.now() / 1000);
-  const corte = marca?.t ? Number(marca.t) : agora - PRIMEIRA_CARGA_SEG;
+  // Varre SEMPRE a janela recente, mesmo que já exista mensagem mais nova no
+  // banco: uma recebida pode chegar à Evolution depois de uma enviada mais
+  // recente (foi o que aconteceu). A duplicação é impossível (dedup por wa_id).
+  const corte = Math.min(
+    marca?.t ? Number(marca.t) : agora - PRIMEIRA_CARGA_SEG,
+    agora - JANELA_BUSCA_SEG
+  );
 
   // A Evolution devolve das mais NOVAS para as mais antigas: para na 1ª página
   // que já tem mensagem anterior à marca d'água.
@@ -86,19 +95,24 @@ export async function puxarNovasDoAgente(
       m.status
     );
   }
-  r.novas = await execute(
+  // RETURNING diz QUAIS entraram de fato — as que já existiam não voltam.
+  // É isso que garante que a IA não responda duas vezes a mesma mensagem.
+  const inseridas = await query<{ wa_id: string | null }>(
     `INSERT INTO mensagens
        (agente_id, contato, contato_nome, direcao, texto, criado_em, wa_id, status)
      VALUES ${linhas.join(", ")}
-     ON CONFLICT (wa_id) WHERE wa_id IS NOT NULL DO NOTHING`,
+     ON CONFLICT (wa_id) WHERE wa_id IS NOT NULL DO NOTHING
+     RETURNING wa_id`,
     vals
   );
+  r.novas = inseridas.length;
   if (r.novas === 0) return r; // tudo já tinha chegado pelo webhook
   if (opts.responder === false) return r; // modo diagnóstico: só importa
 
-  // Responde só as RECEBIDAS recentes, uma por contato (a mais nova).
+  // Responde só as RECEBIDAS recentes que ACABARAM de entrar, uma por contato.
+  const novasIds = new Set(inseridas.map((x) => x.wa_id).filter(Boolean));
   const recebidas = novas.filter(
-    (m) => !m.fromMe && m.timestamp > agora - JANELA_RESPOSTA_SEG
+    (m) => !m.fromMe && novasIds.has(m.waId) && m.timestamp > agora - JANELA_RESPOSTA_SEG
   );
   const porContato = new Map<string, MsgEvolution>();
   for (const m of recebidas) {
