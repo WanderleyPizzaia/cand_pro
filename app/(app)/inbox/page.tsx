@@ -4,6 +4,7 @@ import { query } from "@/lib/db";
 import WhatsTabs from "../agentes/WhatsTabs";
 import InboxCliente from "./InboxCliente";
 import CandidatoTabs from "./CandidatoTabs";
+import PuxarNovas from "./PuxarNovas";
 import Icon from "../../components/Icon";
 
 export const dynamic = "force-dynamic";
@@ -57,6 +58,8 @@ export default async function InboxPage({
       </p>
       {ehGestor && <WhatsTabs />}
       {sessao.perfil === "CANDIDATO" && <CandidatoTabs />}
+      {/* Busca ativa: importa da Evolution mesmo quando o webhook não avisa. */}
+      <PuxarNovas segundos={15} />
       <InboxCliente
         perfil={sessao.perfil}
         agenteIdFixo={agenteIdFixo}
