@@ -458,7 +458,14 @@ export default function InboxCliente({
               </div>
 
               <div className="inbox-msgs wa-bg" ref={msgsRef}>
-                {msgs.map((m) => (
+                {msgs.map((m) =>
+                  m.direcao === "erro" ? (
+                    // Aviso do sistema: por que a IA não respondeu.
+                    <div key={m.id} className="wa-aviso">
+                      <span>{m.texto}</span>
+                      <b>{m.quando}</b>
+                    </div>
+                  ) : (
                   <div key={m.id} className={`bolha ${m.direcao === "in" ? "in" : "out"}`}>
                     {m.media && m.media_tipo === "audio" ? (
                       <audio controls preload="none" src={m.media} style={{ maxWidth: 240, display: "block" }} />
@@ -478,7 +485,8 @@ export default function InboxCliente({
                       {m.direcao === "out" && <Ticks status={m.status} />}
                     </div>
                   </div>
-                ))}
+                  )
+                )}
                 {msgs.length === 0 && (
                   <div className="wa-vazio">Sem mensagens nesta conversa ainda.</div>
                 )}

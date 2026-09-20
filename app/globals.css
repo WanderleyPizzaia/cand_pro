@@ -3762,11 +3762,17 @@ span.dash-avatar {
   gap: 4px;
   font-size: 12px;
   font-weight: 700;
-  color: #92610a;
-  background: #fdf4e3;
-  border: 1px solid #f0dcae;
+  color: var(--yellow);
+  background: rgba(245, 196, 81, 0.12);
+  border: 1px solid rgba(245, 196, 81, 0.35);
   padding: 4px 10px;
   border-radius: 99px;
+}
+/* Não é aviso, é impedimento: o número não responde. */
+.tag-alerta.grave {
+  color: var(--red);
+  background: rgba(248, 113, 113, 0.12);
+  border-color: rgba(248, 113, 113, 0.4);
 }
 
 /* ===== Inbox: busca, abas e tags por conversa ===== */
@@ -4776,4 +4782,29 @@ input:focus, select:focus, textarea:focus {
   .lim-grid {
     grid-template-columns: 1fr;
   }
+}
+
+/* Aviso do sistema dentro da conversa (ex.: "IA sem chave", "limite atingido").
+   Centralizado e discreto: é log, não é mensagem de ninguém. */
+.wa-aviso {
+  align-self: center;
+  max-width: 85%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+  text-align: center;
+  background: rgba(248, 113, 113, 0.1);
+  border: 1px solid rgba(248, 113, 113, 0.3);
+  color: var(--red);
+  border-radius: 10px;
+  padding: 6px 12px;
+  font-size: 12px;
+  line-height: 1.4;
+}
+.wa-aviso b {
+  color: var(--muted);
+  font-weight: 600;
+  font-size: 11px;
 }

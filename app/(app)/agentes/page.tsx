@@ -116,7 +116,7 @@ export default async function AgentesPage() {
 
       <div className="agentes-grid">
         {lista.map((a) => (
-          <AgenteCard key={a.id} agente={a} />
+          <AgenteCard key={a.id} agente={a} temChaveGlobal={st.iaGlobal} />
         ))}
       </div>
     </>

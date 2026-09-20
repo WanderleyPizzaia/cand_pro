@@ -38,12 +38,13 @@ export async function GET(req: NextRequest) {
       params.push(agenteFilter);
       extra = ` AND agente_id = $${params.length}`;
     }
-    // Thread (só mensagens reais in/out; 'erro' é log interno, não entra na réplica)
+    // Thread: mensagens reais + os avisos internos ('erro'), que são a única
+    // explicação visível quando a IA não respondeu (sem chave, limite, falha).
     const msgs = await query(
       `SELECT id, direcao, texto, status, contato_nome, agente_id, media, media_tipo,
               to_char(criado_em AT TIME ZONE 'America/Sao_Paulo','YYYY-MM-DD HH24:MI') AS quando
          FROM mensagens
-        WHERE contato = $1 AND direcao IN ('in','out')${extra}${escWhere}
+        WHERE contato = $1 AND direcao IN ('in','out','erro')${extra}${escWhere}
         ORDER BY criado_em ASC, id ASC`,
       params
     );

@@ -50,7 +50,15 @@ function rotuloEstado(state: string | null): { txt: string; cls: string } {
   }
 }
 
-export default function AgenteCard({ agente }: { agente: Agente }) {
+export default function AgenteCard({
+  agente,
+  temChaveGlobal = false,
+}: {
+  agente: Agente;
+  // Existe chave de IA global utilizável? Sem ela, agente sem chave própria
+  // simplesmente não responde — e o cartão precisa dizer isso.
+  temChaveGlobal?: boolean;
+}) {
   const router = useRouter();
   const [ativo, setAtivo] = useState(!!agente.ativo);
   const [state, setState] = useState<string | null>(null);
@@ -220,10 +228,16 @@ export default function AgenteCard({ agente }: { agente: Agente }) {
     // Guarda: ligar sem chave de IA própria faz a resposta falhar silenciosamente.
     if (novo && !temIa) {
       const ok = confirm(
-        `${agente.candidato} está SEM chave de IA própria.\n\n` +
-          `Sem ela o agente pode não conseguir responder (usa a chave global). ` +
-          `Recomendado: abra "Ajustes" e cadastre a chave de IA deste candidato antes de ligar.\n\n` +
-          `Ligar mesmo assim?`
+        temChaveGlobal
+          ? `${agente.candidato} está SEM chave de IA própria.\n\n` +
+            `Vai usar a chave global (custo junto com os outros). ` +
+            `Recomendado: abra "Ajustes" e cadastre a chave deste candidato.\n\n` +
+            `Ligar mesmo assim?`
+          : `${agente.candidato} NÃO vai responder.\n\n` +
+            `Não tem chave de IA própria e não existe chave global no sistema: ` +
+            `as mensagens chegam e ficam sem resposta.\n\n` +
+            `Abra "Ajustes" e cadastre a chave de IA deste candidato.\n\n` +
+            `Ligar mesmo assim?`
       );
       if (!ok) return;
     }
@@ -445,10 +459,14 @@ export default function AgenteCard({ agente }: { agente: Agente }) {
         )}
         {!temIa && (
           <span
-            className="tag-alerta"
-            title="Sem chave de IA própria: cadastre em Ajustes para o agente responder"
+            className={temChaveGlobal ? "tag-alerta" : "tag-alerta grave"}
+            title={
+              temChaveGlobal
+                ? "Sem chave própria: usa a chave global. Cadastre em Ajustes para separar o custo."
+                : "Este número NÃO responde: não tem chave de IA própria e não existe chave global. Cadastre em Ajustes."
+            }
           >
-            ⚠ Sem chave de IA
+            {temChaveGlobal ? "⚠ Sem chave de IA" : "⚠ Não responde: sem chave de IA"}
           </span>
         )}
         <button className="btn-link" onClick={() => setAjustes((v) => !v)}>
@@ -592,10 +610,14 @@ export default function AgenteCard({ agente }: { agente: Agente }) {
                 style={{
                   fontSize: 11,
                   fontWeight: 700,
-                  color: temIa ? "var(--green)" : "var(--yellow)",
+                  color: temIa ? "var(--green)" : temChaveGlobal ? "var(--yellow)" : "var(--red)",
                 }}
               >
-                {temIa ? "✓ configurada" : "○ usando a global"}
+                {temIa
+                  ? "✓ configurada"
+                  : temChaveGlobal
+                  ? "○ usando a global"
+                  : "✗ sem chave: este número não responde"}
               </span>
             </label>
             <input

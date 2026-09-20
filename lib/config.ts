@@ -50,7 +50,7 @@ export async function urlWebhookEvolution(origin: string): Promise<string> {
 }
 
 export async function statusConfig() {
-  const [url, apikey, claude, gcal, n8nUrl, n8nToken, n8nAgente, metaSecret] = await Promise.all([
+  const [url, apikey, claude, gcal, n8nUrl, n8nToken, n8nAgente, metaSecret, iaKey] = await Promise.all([
     getConfig("EVOLUTION_URL"),
     getConfig("EVOLUTION_APIKEY"),
     getConfig("ANTHROPIC_API_KEY"),
@@ -59,11 +59,16 @@ export async function statusConfig() {
     getConfig("N8N_TOKEN"),
     getConfig("N8N_AGENTE_URL"),
     getConfig("META_APP_SECRET"),
+    getConfig("IA_API_KEY"),
   ]);
   return {
     evolutionUrl: !!url,
     evolutionApiKey: !!apikey,
     anthropicKey: !!claude,
+    // Chave de IA global de verdade: é a que lib/ia.ts usa quando o agente não
+    // tem a própria. Chave de outro fornecedor (sk-ant-) não serve no endpoint
+    // atual, então não conta como configurada.
+    iaGlobal: !!(iaKey || claude) && !(iaKey || claude).startsWith("sk-ant-"),
     googleCalendar: !!gcal,
     n8nDisparoUrl: !!n8nUrl,
     n8nToken: !!n8nToken,
