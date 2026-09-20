@@ -135,7 +135,50 @@ export type AgenteConfig = {
     horario?: string;
     notificar_whatsapp?: string;
   };
+  // Limites da conversa com a IA: seguram o custo por token e mantêm o agente
+  // no assunto. Ver limitesDaIA() para os padrões.
+  limites?: {
+    // Respostas que a IA pode dar ao MESMO contato por dia. 0 = sem limite.
+    respostas_dia?: number;
+    // Mensagens anteriores enviadas à IA como contexto (o que mais pesa no custo).
+    historico?: number;
+    // Assuntos permitidos (texto livre). Vazio = sem trava de assunto.
+    assuntos?: string;
+    // O que responder quando o contato foge dos assuntos.
+    fora_do_escopo?: string;
+  };
 };
+
+export type LimitesIA = {
+  respostasDia: number;
+  historico: number;
+  assuntos: string;
+  foraDoEscopo: string;
+};
+
+// Padrões: 10 respostas por contato/dia e 8 mensagens de contexto. O histórico
+// era fixo em 24 — é ele que faz a conta de tokens subir a cada resposta.
+export const LIMITES_IA_PADRAO: LimitesIA = {
+  respostasDia: 10,
+  historico: 8,
+  assuntos: "",
+  foraDoEscopo: "Sobre isso eu não consigo ajudar por aqui.",
+};
+
+export function limitesDaIA(a: Pick<Agente, "config">): LimitesIA {
+  const c = a.config?.limites || {};
+  const num = (v: unknown, padrao: number, max: number) => {
+    const n = Number(v);
+    if (!Number.isFinite(n) || n < 0) return padrao;
+    return Math.min(Math.floor(n), max);
+  };
+  return {
+    respostasDia: c.respostas_dia === undefined ? LIMITES_IA_PADRAO.respostasDia : num(c.respostas_dia, LIMITES_IA_PADRAO.respostasDia, 200),
+    historico: c.historico === undefined ? LIMITES_IA_PADRAO.historico : Math.max(2, num(c.historico, LIMITES_IA_PADRAO.historico, 40)),
+    assuntos: (c.assuntos || "").trim(),
+    foraDoEscopo: (c.fora_do_escopo || "").trim() || LIMITES_IA_PADRAO.foraDoEscopo,
+  };
+}
 
 // Padrão de fábrica de um agente novo (plug-and-play).
 export const CONFIG_AGENTE_PADRAO: AgenteConfig = {
@@ -149,6 +192,7 @@ export const CONFIG_AGENTE_PADRAO: AgenteConfig = {
     avisar_equipe: false,
   },
   atendimento: { saudacao: "", horario: "", notificar_whatsapp: "" },
+  limites: { respostas_dia: 10, historico: 8, assuntos: "", fora_do_escopo: "" },
 };
 
 export type Mensagem = {

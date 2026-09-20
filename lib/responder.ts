@@ -1,4 +1,4 @@
-import { execute, Agente } from "./db";
+import { execute, queryOne, limitesDaIA, Agente } from "./db";
 import { getConfig } from "./config";
 import { gerarResposta } from "./ia";
 import {
@@ -68,12 +68,50 @@ export async function responderIA(
   const numero = opts.numero;
   const nome = opts.nome ?? null;
   const ehMeta = agente.provedor === "meta";
+  const limites = limitesDaIA(agente);
+
+  // Teto de respostas por contato no dia: segura conversa que não acaba (e a
+  // conta de tokens junto). Ao bater o teto a IA silencia — a conversa segue
+  // na caixa de entrada para alguém da equipe assumir.
+  if (limites.respostasDia > 0) {
+    const hoje = await queryOne<{ n: number }>(
+      `SELECT COUNT(*)::int n FROM mensagens
+        WHERE agente_id = $1 AND contato = $2 AND direcao = 'out' AND origem = 'ia'
+          AND (criado_em AT TIME ZONE 'America/Sao_Paulo')::date
+              = (now() AT TIME ZONE 'America/Sao_Paulo')::date`,
+      [agente.id, numero]
+    );
+    if ((hoje?.n ?? 0) >= limites.respostasDia) {
+      // Registra o aviso uma vez por dia, para a equipe entender o silêncio.
+      const jaAvisou = await queryOne<{ x: number }>(
+        `SELECT 1 x FROM mensagens
+          WHERE agente_id = $1 AND contato = $2 AND direcao = 'erro'
+            AND texto LIKE 'Limite de respostas da IA%'
+            AND (criado_em AT TIME ZONE 'America/Sao_Paulo')::date
+                = (now() AT TIME ZONE 'America/Sao_Paulo')::date
+          LIMIT 1`,
+        [agente.id, numero]
+      );
+      if (!jaAvisou)
+        await execute(
+          "INSERT INTO mensagens (agente_id, contato, contato_nome, direcao, texto) VALUES ($1, $2, $3, 'erro', $4)",
+          [
+            agente.id,
+            numero,
+            nome,
+            `Limite de respostas da IA atingido hoje (${limites.respostasDia}). A conversa aguarda a equipe.`,
+          ]
+        );
+      return { ok: false, enviados: 0, erro: "limite_respostas" };
+    }
+  }
 
   const resposta = await gerarResposta(
     agente.id,
     agente.persona || "",
     numero,
-    agente.ia_key
+    agente.ia_key,
+    limites
   );
   if (!resposta.ok || !resposta.texto) {
     await execute(

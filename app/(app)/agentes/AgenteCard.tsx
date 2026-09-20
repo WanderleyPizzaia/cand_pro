@@ -23,6 +23,14 @@ type Agente = {
   quota_diaria?: number | null;
   quotaEfetiva?: number;
   disparosHoje?: number;
+  config?: {
+    limites?: {
+      respostas_dia?: number;
+      historico?: number;
+      assuntos?: string;
+      fora_do_escopo?: string;
+    };
+  } | null;
 };
 
 // Traduz o estado bruto da Evolution para algo amigável.
@@ -64,6 +72,16 @@ export default function AgenteCard({ agente }: { agente: Agente }) {
   const [temMetaToken, setTemMetaToken] = useState(!!agente.tem_meta_token);
   // Cota diária de disparo (vazio = padrão do provedor).
   const [quota, setQuota] = useState(agente.quota_diaria != null ? String(agente.quota_diaria) : "");
+  // Limites da conversa com a IA (teto de respostas, contexto e assunto).
+  const lim0 = agente.config?.limites || {};
+  const [limRespostas, setLimRespostas] = useState(
+    lim0.respostas_dia !== undefined ? String(lim0.respostas_dia) : "10"
+  );
+  const [limHistorico, setLimHistorico] = useState(
+    lim0.historico !== undefined ? String(lim0.historico) : "8"
+  );
+  const [limAssuntos, setLimAssuntos] = useState(lim0.assuntos || "");
+  const [limForaEscopo, setLimForaEscopo] = useState(lim0.fora_do_escopo || "");
   const ehMeta = provedor === "meta";
   // Dono (usuário-candidato): quem é o login do candidato deste número. Vincular
   // deixa o candidato conectar/gerenciar o próprio WhatsApp e reforça o isolamento.
@@ -163,6 +181,12 @@ export default function AgenteCard({ agente }: { agente: Agente }) {
     if (iaKey.trim()) body.ia_key = iaKey.trim();
     if (metaToken.trim()) body.meta_token = metaToken.trim();
     body.quota_diaria = quota.trim() ? Number(quota) : 0; // 0 => volta ao padrão do provedor
+    body.limites = {
+      respostas_dia: limRespostas.trim() ? Number(limRespostas) : 0, // 0 = sem teto
+      historico: limHistorico.trim() ? Number(limHistorico) : 8,
+      assuntos: limAssuntos,
+      fora_do_escopo: limForaEscopo,
+    };
     const r = await fetch("/api/agentes", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -600,6 +624,65 @@ export default function AgenteCard({ agente }: { agente: Agente }) {
               não-oficial (maior risco de bloqueio), use com cautela.
             </small>
           </div>
+          {/* Limites da conversa: seguram o custo por token e o assunto. */}
+          <div className="field" style={{ gridColumn: "1 / -1" }}>
+            <label>Limites da conversa com a IA</label>
+            <div className="lim-grid">
+              <div>
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  min={0}
+                  value={limRespostas}
+                  onChange={(e) => setLimRespostas(e.target.value)}
+                />
+                <small>
+                  Respostas por contato/dia. Ao bater o teto a IA silencia e a
+                  conversa fica para a equipe. <b>0 = sem limite.</b>
+                </small>
+              </div>
+              <div>
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  min={2}
+                  value={limHistorico}
+                  onChange={(e) => setLimHistorico(e.target.value)}
+                />
+                <small>
+                  Mensagens anteriores enviadas à IA como contexto. É o que mais
+                  pesa no custo: 8 costuma bastar.
+                </small>
+              </div>
+            </div>
+          </div>
+          <div className="field" style={{ gridColumn: "1 / -1" }}>
+            <label>
+              Assuntos permitidos{" "}
+              <span style={{ fontSize: 11, fontWeight: 700, color: "var(--muted)" }}>
+                (vazio = sem trava)
+              </span>
+            </label>
+            <input
+              placeholder="ex: campanha, propostas, agenda do candidato, demandas do bairro"
+              value={limAssuntos}
+              onChange={(e) => setLimAssuntos(e.target.value)}
+            />
+            <small style={{ color: "var(--muted)", fontSize: 12, marginTop: 4 }}>
+              Fora desses assuntos a IA não entra no mérito: responde a frase
+              abaixo e volta ao tema.
+            </small>
+          </div>
+          {limAssuntos.trim() !== "" && (
+            <div className="field" style={{ gridColumn: "1 / -1" }}>
+              <label>Resposta quando o assunto foge</label>
+              <input
+                placeholder="Sobre isso eu não consigo ajudar por aqui."
+                value={limForaEscopo}
+                onChange={(e) => setLimForaEscopo(e.target.value)}
+              />
+            </div>
+          )}
           <div className="actions">
             {msg && (
               <span style={{ color: "var(--green)", alignSelf: "center" }}>

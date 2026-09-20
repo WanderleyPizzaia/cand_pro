@@ -1,5 +1,5 @@
 import { getConfig } from "./config";
-import { query, Mensagem } from "./db";
+import { query, Mensagem, LIMITES_IA_PADRAO, type LimitesIA } from "./db";
 import { FUNCOES } from "./opcoes";
 import { TEMAS, TIPOS } from "./pautas";
 
@@ -386,18 +386,23 @@ export async function gerarResposta(
   agenteId: number,
   persona: string,
   contato: string,
-  iaKey?: string | null
+  iaKey?: string | null,
+  limites?: LimitesIA
 ): Promise<{ ok: boolean; texto?: string; erro?: string }> {
+  const lim = limites || LIMITES_IA_PADRAO;
   const key = await resolverChave(iaKey);
   if (!key) return { ok: false, erro: "Chave de IA não configurada" };
 
   const model = (await getConfig("IA_MODEL")) || IA_MODEL_PADRAO;
 
-  // Histórico recente (últimas 24 mensagens reais dessa conversa) - mais contexto
-  // para NÃO repetir perguntas já respondidas.
+  // Histórico recente dessa conversa: contexto suficiente para não repetir
+  // pergunta já respondida, sem mandar a conversa inteira a cada resposta
+  // (é o que mais pesa na conta de tokens). Quantidade por agente.
   const historico = await query<Pick<Mensagem, "direcao" | "texto">>(
-    "SELECT direcao, texto FROM mensagens WHERE agente_id = $1 AND contato = $2 AND direcao IN ('in','out') ORDER BY id DESC LIMIT 24",
-    [agenteId, contato]
+    `SELECT direcao, texto FROM mensagens
+      WHERE agente_id = $1 AND contato = $2 AND direcao IN ('in','out')
+      ORDER BY id DESC LIMIT $3`,
+    [agenteId, contato, lim.historico]
   );
 
   const hist = historico
@@ -435,8 +440,19 @@ export async function gerarResposta(
     /* fatos é enriquecimento, best-effort */
   }
 
+  // Trava de assunto (opcional): mantém o agente no tema e corta conversa longa
+  // sobre o que não interessa — menos token e menos risco de saia-justa.
+  const escopo = lim.assuntos
+    ? `\n\nESCOPO: você só conversa sobre ${lim.assuntos}. ` +
+      `Se o contato puxar outro assunto, não entre no mérito: responda "${lim.foraDoEscopo}" ` +
+      `e volte ao escopo em no máximo uma frase. Não repita esse aviso mais de uma vez seguida.`
+    : "";
+
   const messages = [
-    { role: "system", content: (persona || "Você é um assistente cordial.") + fatos + GUARDA },
+    {
+      role: "system",
+      content: (persona || "Você é um assistente cordial.") + fatos + GUARDA + escopo,
+    },
     ...hist,
   ];
 

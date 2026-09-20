@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { query, queryOne, execute, Agente, quotaEfetiva, disparosUsadosHoje } from "@/lib/db";
+import { query, queryOne, execute, Agente, quotaEfetiva, disparosUsadosHoje, LIMITES_IA_PADRAO } from "@/lib/db";
 import { getSessao } from "@/lib/auth";
 import { deletarInstancia, definirWebhook } from "@/lib/evolution";
 import { urlWebhookEvolution } from "@/lib/config";
@@ -39,7 +39,7 @@ export async function GET() {
     }
   >(
     `SELECT id, candidato, foto, instancia, telefone, persona, usuario_id, ativo, criado_em,
-            provedor, meta_phone_id, meta_waba_id, quota_diaria,
+            provedor, meta_phone_id, meta_waba_id, quota_diaria, config,
             (ia_key IS NOT NULL) AS tem_ia,
             (meta_token IS NOT NULL) AS tem_meta_token
        FROM agentes ORDER BY id`
@@ -170,6 +170,25 @@ export async function POST(req: NextRequest) {
     if (donoId === false)
       return NextResponse.json({ erro: "Usuário dono inválido." }, { status: 400 });
     setCampo("usuario_id", donoId);
+  }
+
+  // Limites da conversa com a IA (teto de respostas, contexto e assunto).
+  // Grava dentro do config JSONB, substituindo o bloco inteiro.
+  if (b.limites && typeof b.limites === "object") {
+    const l = b.limites as Record<string, unknown>;
+    const inteiro = (v: unknown, padrao: number, max: number) => {
+      const n = Number(v);
+      if (!Number.isFinite(n) || n < 0) return padrao;
+      return Math.min(Math.floor(n), max);
+    };
+    const limites = {
+      respostas_dia: inteiro(l.respostas_dia, LIMITES_IA_PADRAO.respostasDia, 200),
+      historico: Math.max(2, inteiro(l.historico, LIMITES_IA_PADRAO.historico, 40)),
+      assuntos: String(l.assuntos ?? "").trim().slice(0, 400),
+      fora_do_escopo: String(l.fora_do_escopo ?? "").trim().slice(0, 300),
+    };
+    sets.push(`config = COALESCE(config,'{}'::jsonb) || $${i++}::jsonb`);
+    vals.push(JSON.stringify({ limites }));
   }
 
   // Segredos (write-only): só atualizam quando vêm no corpo.
