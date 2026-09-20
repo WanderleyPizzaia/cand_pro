@@ -29,11 +29,12 @@ export async function POST(req: NextRequest) {
   if (!agenteId || !contato)
     return NextResponse.json({ erro: "Dados incompletos" }, { status: 400 });
 
-  if (acao === "pausar") await pausar(agenteId, contato);
+  // Desligar a IA pelo botão é decisão da equipe: não expira sozinha.
+  if (acao === "pausar") await pausar(agenteId, contato, "comando");
   else if (acao === "retomar") await retomar(agenteId, contato);
   else {
     if (await estaPausado(agenteId, contato)) await retomar(agenteId, contato);
-    else await pausar(agenteId, contato);
+    else await pausar(agenteId, contato, "comando");
   }
   return NextResponse.json({ pausado: await estaPausado(agenteId, contato) });
 }

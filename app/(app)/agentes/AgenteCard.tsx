@@ -29,6 +29,7 @@ type Agente = {
       historico?: number;
       assuntos?: string;
       fora_do_escopo?: string;
+      pausa_humana_horas?: number;
     };
   } | null;
 };
@@ -82,6 +83,9 @@ export default function AgenteCard({ agente }: { agente: Agente }) {
   );
   const [limAssuntos, setLimAssuntos] = useState(lim0.assuntos || "");
   const [limForaEscopo, setLimForaEscopo] = useState(lim0.fora_do_escopo || "");
+  const [limPausaHoras, setLimPausaHoras] = useState(
+    lim0.pausa_humana_horas !== undefined ? String(lim0.pausa_humana_horas) : "6"
+  );
   const ehMeta = provedor === "meta";
   // Dono (usuário-candidato): quem é o login do candidato deste número. Vincular
   // deixa o candidato conectar/gerenciar o próprio WhatsApp e reforça o isolamento.
@@ -186,6 +190,7 @@ export default function AgenteCard({ agente }: { agente: Agente }) {
       historico: limHistorico.trim() ? Number(limHistorico) : 8,
       assuntos: limAssuntos,
       fora_do_escopo: limForaEscopo,
+      pausa_humana_horas: limPausaHoras.trim() ? Number(limPausaHoras) : 0,
     };
     const r = await fetch("/api/agentes", {
       method: "POST",
@@ -652,6 +657,21 @@ export default function AgenteCard({ agente }: { agente: Agente }) {
                 <small>
                   Mensagens anteriores enviadas à IA como contexto. É o que mais
                   pesa no custo: 8 costuma bastar.
+                </small>
+              </div>
+              <div>
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  min={0}
+                  value={limPausaHoras}
+                  onChange={(e) => setLimPausaHoras(e.target.value)}
+                />
+                <small>
+                  Horas até a IA voltar sozinha depois que alguém responde pelo
+                  celular. <b>0 = não volta</b> (só no botão "IA ativa"). Quem
+                  desliga pelo botão ou atribui a conversa continua valendo até
+                  religarem.
                 </small>
               </div>
             </div>

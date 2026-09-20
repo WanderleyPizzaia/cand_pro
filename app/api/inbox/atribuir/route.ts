@@ -71,6 +71,7 @@ export async function POST(req: NextRequest) {
     [agenteId, contato, alvo.id, alvo.nome, s.uid]
   );
   // Transferir para humano = pausa a IA neste contato (a atendente assume).
-  await pausar(agenteId, contato);
+  // Atribuição é decisão da equipe: a pausa não expira sozinha.
+  await pausar(agenteId, contato, "comando");
   return NextResponse.json({ ok: true, atual: { usuario_id: alvo.id, usuario_nome: alvo.nome } });
 }

@@ -146,6 +146,9 @@ export type AgenteConfig = {
     assuntos?: string;
     // O que responder quando o contato foge dos assuntos.
     fora_do_escopo?: string;
+    // Horas até a IA voltar sozinha depois que um humano respondeu pelo
+    // celular. 0 = não volta (comportamento antigo).
+    pausa_humana_horas?: number;
   };
 };
 
@@ -154,6 +157,7 @@ export type LimitesIA = {
   historico: number;
   assuntos: string;
   foraDoEscopo: string;
+  pausaHumanaHoras: number;
 };
 
 // Padrões: 10 respostas por contato/dia e 8 mensagens de contexto. O histórico
@@ -163,6 +167,7 @@ export const LIMITES_IA_PADRAO: LimitesIA = {
   historico: 8,
   assuntos: "",
   foraDoEscopo: "Sobre isso eu não consigo ajudar por aqui.",
+  pausaHumanaHoras: 6,
 };
 
 export function limitesDaIA(a: Pick<Agente, "config">): LimitesIA {
@@ -177,6 +182,10 @@ export function limitesDaIA(a: Pick<Agente, "config">): LimitesIA {
     historico: c.historico === undefined ? LIMITES_IA_PADRAO.historico : Math.max(2, num(c.historico, LIMITES_IA_PADRAO.historico, 40)),
     assuntos: (c.assuntos || "").trim(),
     foraDoEscopo: (c.fora_do_escopo || "").trim() || LIMITES_IA_PADRAO.foraDoEscopo,
+    pausaHumanaHoras:
+      c.pausa_humana_horas === undefined
+        ? LIMITES_IA_PADRAO.pausaHumanaHoras
+        : num(c.pausa_humana_horas, LIMITES_IA_PADRAO.pausaHumanaHoras, 720),
   };
 }
 
@@ -192,7 +201,13 @@ export const CONFIG_AGENTE_PADRAO: AgenteConfig = {
     avisar_equipe: false,
   },
   atendimento: { saudacao: "", horario: "", notificar_whatsapp: "" },
-  limites: { respostas_dia: 10, historico: 8, assuntos: "", fora_do_escopo: "" },
+  limites: {
+    respostas_dia: 10,
+    historico: 8,
+    assuntos: "",
+    fora_do_escopo: "",
+    pausa_humana_horas: 6,
+  },
 };
 
 export type Mensagem = {
@@ -388,7 +403,7 @@ async function limparDemoAntiga() {
 // aí o próximo boot roda as migrações uma vez e volta a pular. Isto é o que
 // deixa o app rápido: sem o gate, cada lambda fria repetia ~50 comandos DDL +
 // seeds antes da 1ª consulta (o "demora no primeiro clique").
-const SCHEMA_V = "2026-09-19.usuario-agentes";
+const SCHEMA_V = "2026-09-20.pausa-expira";
 
 async function inicializar() {
   // Gate barato: garante a tabela config e, se o schema já está na versão
@@ -527,6 +542,11 @@ async function inicializar() {
       pausado_em TIMESTAMPTZ NOT NULL DEFAULT now(),
       PRIMARY KEY (agente_id, contato)
     )`);
+  // 'humano' (alguém respondeu pelo celular) expira sozinha; 'comando' (a
+  // equipe pediu para calar a IA) só volta quando alguém mandar voltar.
+  await pool.query(
+    `ALTER TABLE atendimento_pausado ADD COLUMN IF NOT EXISTS tipo TEXT NOT NULL DEFAULT 'humano'`
+  );
   // Atribuição de conversa a uma atendente da equipe (transferir atendimento).
   await pool.query(`
     CREATE TABLE IF NOT EXISTS atendimento_atribuicao (

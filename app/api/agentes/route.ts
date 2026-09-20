@@ -186,6 +186,7 @@ export async function POST(req: NextRequest) {
       historico: Math.max(2, inteiro(l.historico, LIMITES_IA_PADRAO.historico, 40)),
       assuntos: String(l.assuntos ?? "").trim().slice(0, 400),
       fora_do_escopo: String(l.fora_do_escopo ?? "").trim().slice(0, 300),
+      pausa_humana_horas: inteiro(l.pausa_humana_horas, LIMITES_IA_PADRAO.pausaHumanaHoras, 720),
     };
     sets.push(`config = COALESCE(config,'{}'::jsonb) || $${i++}::jsonb`);
     vals.push(JSON.stringify({ limites }));
