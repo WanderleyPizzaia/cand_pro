@@ -340,6 +340,41 @@ export async function estadoInstancia(
   }
 }
 
+// Lista o que existe DE FATO no servidor Evolution. Serve para descobrir
+// descompasso entre o cadastro daqui e as instâncias de lá (renomeada,
+// apagada, ou uma segunda instância segurando o mesmo número).
+export async function listarInstancias(): Promise<{
+  ok: boolean;
+  instancias: { nome: string; state: string | null; numero: string | null }[];
+  erro?: string;
+}> {
+  const { base, apikey } = await baseEApikey();
+  if (!base || !apikey)
+    return { ok: false, instancias: [], erro: "Evolution não configurada" };
+  try {
+    const r = await fetch(`${base}/instance/fetchInstances`, {
+      headers: { apikey },
+      cache: "no-store",
+    });
+    if (!r.ok) return { ok: false, instancias: [], erro: `Evolution ${r.status}` };
+    const d = await r.json();
+    const lista = Array.isArray(d) ? d : d?.instances || [];
+    return {
+      ok: true,
+      instancias: lista.map((x: any) => {
+        const i = x?.instance || x;
+        return {
+          nome: i?.instanceName ?? i?.name ?? "",
+          state: i?.connectionStatus ?? i?.state ?? i?.status ?? null,
+          numero: (i?.owner ?? i?.number ?? i?.ownerJid ?? "").toString().split("@")[0] || null,
+        };
+      }),
+    };
+  } catch (e: any) {
+    return { ok: false, instancias: [], erro: e.message };
+  }
+}
+
 // Cria a instância (caso ainda não exista) - necessário para conectar agentes
 // que nunca tiveram WhatsApp. Idempotente: ignora erro de "já existe".
 export async function criarInstancia(
