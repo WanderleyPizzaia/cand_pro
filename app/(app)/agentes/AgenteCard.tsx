@@ -45,6 +45,10 @@ function rotuloEstado(state: string | null): { txt: string; cls: string } {
       return { txt: "Desconectado", cls: "off" };
     case "sem-instancia":
       return { txt: "Sem WhatsApp", cls: "off" };
+    case "inexistente":
+      // A instância sumiu do servidor (apagada ou nome trocado à mão):
+      // reconectar não resolve, é preciso recriar pelo botão de conectar.
+      return { txt: "Instância não existe", cls: "off" };
     default:
       return { txt: "Verificando…", cls: "wait" };
   }

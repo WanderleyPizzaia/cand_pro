@@ -314,7 +314,8 @@ export function slugInstancia(nome: string): string {
     .slice(0, 40);
 }
 
-// Estado de conexão: 'open' (conectada), 'connecting', 'close', ou null se erro.
+// Estado de conexão: 'open' (conectada), 'connecting', 'close', 'inexistente'
+// (a instância sumiu da Evolution) ou null se não deu para consultar.
 export async function estadoInstancia(
   instancia: string,
   apikeyOverride?: string | null
@@ -326,6 +327,10 @@ export async function estadoInstancia(
       headers: { apikey },
       cache: "no-store",
     });
+    // 404 = a instância não existe mais lá (apagada no painel ou nome trocado
+    // à mão). É diferente de "caiu": aqui só reconectar não resolve, tem que
+    // recriar — e a tela precisa dizer isso.
+    if (r.status === 404) return { ok: true, state: "inexistente" };
     if (!r.ok) return { ok: false, state: null, erro: `Evolution ${r.status}` };
     const d = await r.json();
     const state = d?.instance?.state ?? d?.state ?? null;

@@ -146,12 +146,23 @@ export async function GET(req: NextRequest) {
 
   // Tempo real: a instância ainda aponta para o nosso webhook? Se não, as
   // mensagens só chegam na varredura periódica (plano B) — e a tela avisa.
-  const nossaUrl = await urlWebhookEvolution(new URL(req.url).origin);
+  // Não compara o domínio: a plataforma responde tanto no domínio próprio
+  // quanto no da Vercel, e o webhook pode ter sido gravado por qualquer um
+  // dos dois. O que vale é cair na nossa rota com o token certo.
+  const nossaUrl = new URL(await urlWebhookEvolution(new URL(req.url).origin));
   const w = await buscarWebhook(auth.agente.instancia, auth.agente.apikey);
-  const semParametro = (u: string) => u.split("?")[0];
-  const tempoReal = w.ok
-    ? !!w.ativo && semParametro(w.url || "") === semParametro(nossaUrl)
-    : null; // null = não deu para conferir agora
+  let tempoReal: boolean | null = null; // null = não deu para conferir agora
+  if (w.ok) {
+    try {
+      const u = new URL(w.url || "");
+      tempoReal =
+        !!w.ativo &&
+        u.pathname === nossaUrl.pathname &&
+        u.searchParams.get("token") === nossaUrl.searchParams.get("token");
+    } catch {
+      tempoReal = false; // sem URL ou URL inválida = sem tempo real
+    }
+  }
 
   return NextResponse.json({ state: r.state, tempoReal, webhookUrl: w.url || null });
 }
