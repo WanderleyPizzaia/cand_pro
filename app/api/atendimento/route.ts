@@ -193,14 +193,15 @@ export async function GET(req: NextRequest) {
   );
 
   // Contadores por view (para a barra lateral, sem clicar).
+  // Seguem o filtro de número: senão a barra diz 140 e a lista mostra 12.
   const cont = await queryOne<{ fila: number; minhas: number; todas: number }>(
     `SELECT
         COALESCE(SUM(CASE WHEN at.status = 'fila' THEN 1 ELSE 0 END),0)::int fila,
         COALESCE(SUM(CASE WHEN at.status = 'atribuido' AND at.atendente_id = $1 THEN 1 ELSE 0 END),0)::int minhas,
         COALESCE(SUM(CASE WHEN at.status <> 'resolvido' THEN 1 ELSE 0 END),0)::int todas
        FROM atendimentos at
-      WHERE 1=1 ${filtroEscopo}`,
-    [s.uid]
+      WHERE 1=1 ${filtroEscopo} ${agenteQ ? "AND at.agente_id = $2" : ""}`,
+    agenteQ ? [s.uid, agenteQ] : [s.uid]
   );
 
   // Equipe de atendentes (para transferir): quem atende, com os números de cada
@@ -233,10 +234,18 @@ export async function GET(req: NextRequest) {
     [s.uid]
   );
 
+  // Números (agentes) que esta sessão enxerga: alimentam o filtro da tela.
+  const agentes = await query<{ id: number; candidato: string; telefone: string | null }>(
+    `SELECT id, candidato, telefone FROM agentes
+      WHERE 1=1 ${esc ? `AND id IN (${esc.join(",")})` : ""}
+      ORDER BY candidato`
+  );
+
   return NextResponse.json({
     conversas,
     contadores: cont,
     atendentes,
+    agentes,
     eu: { uid: s.uid, nome: s.nome, perfil: s.perfil, disponivel: eu?.disponivel ?? true, gestor: GESTOR.includes(s.perfil) },
   });
 }

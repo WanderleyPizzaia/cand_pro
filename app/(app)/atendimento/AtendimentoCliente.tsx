@@ -28,6 +28,7 @@ type Msg = {
   media?: string | null;
   media_tipo?: string | null;
 };
+type NumeroAgente = { id: number; candidato: string; telefone: string | null };
 type Atendente = {
   id: number; nome: string; disponivel: boolean; online: boolean;
   agentes: number[];
@@ -79,6 +80,10 @@ export default function AtendimentoCliente() {
   const [eu, setEu] = useState<Eu | null>(null);
   const [transferindo, setTransferindo] = useState(false);
   const [atendenteFiltro, setAtendenteFiltro] = useState<number>(0);
+  // Filtro por número (agente): a equipe opera vários e quase sempre quer
+  // olhar um de cada vez.
+  const [agentes, setAgentes] = useState<NumeroAgente[]>([]);
+  const [agenteFiltro, setAgenteFiltro] = useState<number>(0);
   const [respostas, setRespostas] = useState<{ id: number; atalho: string; texto: string }[]>([]);
   const [gerRapidas, setGerRapidas] = useState(false); // painel de gerenciar (gestor)
   const [botAtivo, setBotAtivo] = useState(false);
@@ -98,6 +103,7 @@ export default function AtendimentoCliente() {
     const p = new URLSearchParams({ view });
     if (busca.trim()) p.set("q", busca.trim());
     if (atendenteFiltro > 0) p.set("atendente", String(atendenteFiltro));
+    if (agenteFiltro > 0) p.set("agente", String(agenteFiltro));
     const req = ++convReq.current;
     try {
       const r = await fetch(`/api/atendimento?${p}`, { cache: "no-store" });
@@ -107,10 +113,11 @@ export default function AtendimentoCliente() {
         setConversas(d.conversas || []);
         setCont(d.contadores || { fila: 0, minhas: 0, todas: 0 });
         setAtendentes(d.atendentes || []);
+        setAgentes(d.agentes || []);
         setEu(d.eu || null);
       }
     } catch {}
-  }, [view, busca, atendenteFiltro]);
+  }, [view, busca, atendenteFiltro, agenteFiltro]);
 
   const carregarThread = useCallback(async (c: Conversa, forcarFim = false) => {
     const p = new URLSearchParams({ contato: c.contato, agente: String(c.agente_id) });
@@ -533,6 +540,7 @@ export default function AtendimentoCliente() {
         .at-eq-item.clic:hover{border-color:var(--accent);box-shadow:0 2px 10px rgba(224,178,77,.12)}
         .at-eq-item.clic:active{transform:scale(.995)}
         .at-filtro-atendente{margin-top:8px}
+        .at-filtro-numero{margin-top:8px}
         .inbox-nao-lida-dot{display:inline-block;width:9px;height:9px;border-radius:50%;
           background:#2c9c4b;margin-left:6px;vertical-align:middle}
         .inbox-conv.nao-lida .inbox-conv-nome{font-weight:800}
@@ -642,6 +650,22 @@ export default function AtendimentoCliente() {
             <>
             <div className="inbox-filtros">
               <input className="inbox-busca" placeholder="Buscar conversa…" value={busca} onChange={(e) => setBusca(e.target.value)} />
+              {agentes.length > 1 && (
+                <select
+                  className="inbox-busca at-filtro-numero"
+                  value={agenteFiltro}
+                  onChange={(e) => setAgenteFiltro(Number(e.target.value))}
+                  title="Ver só o atendimento deste número"
+                >
+                  <option value={0}>Todos os números</option>
+                  {agentes.map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.candidato}
+                      {a.telefone ? ` · ${a.telefone}` : ""}
+                    </option>
+                  ))}
+                </select>
+              )}
               {eu?.gestor && atendentes.length > 0 && (
                 <select
                   className="inbox-busca at-filtro-atendente"
