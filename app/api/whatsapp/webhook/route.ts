@@ -88,7 +88,7 @@ export async function POST(req: NextRequest) {
 
   // ===== Mensagem ENVIADA (fromMe) =====
   // Pode ser o ECO das nossas próprias mensagens (IA/campanha/inbox) OU o operador
-  // atendendo pelo WhatsApp Web. Se for humano: "Deus Abençoe" ALTERNA a pausa da
+  // atendendo pelo WhatsApp Web. Se for humano: o comando "/ia" ALTERNA a pausa da
   // IA; qualquer outra digitação humana PAUSA a IA (o humano assumiu o contato).
   if (key?.fromMe) {
     const waId = key?.id || null;
@@ -131,7 +131,7 @@ export async function POST(req: NextRequest) {
     );
     if (contemComando(txtOut)) {
       const pausadoAgora = await alternar(agOut.id, numOut);
-      console.log(`[webhook] WhatsApp Web comando 'Deus Abencoe' agente=${agOut.id} contato=${numOut} -> ${pausadoAgora ? "PAUSADA" : "RETOMADA"}`);
+      console.log(`[webhook] WhatsApp Web comando '/ia' agente=${agOut.id} contato=${numOut} -> ${pausadoAgora ? "PAUSADA" : "RETOMADA"}`);
       return NextResponse.json({ ok: true, ia: pausadoAgora ? "pausada" : "retomada" });
     }
     // Digitação humana comum: o operador assumiu → pausa a IA neste contato.
@@ -285,7 +285,7 @@ export async function POST(req: NextRequest) {
   if (!agente.ativo) return NextResponse.json({ ok: true, registrado: true });
 
   // Atendimento humano: se a equipe assumiu este contato (pausado), a IA NÃO
-  // responde. Só captura o lead. "Deus Abençoe" do operador retoma a IA.
+  // responde. Só captura o lead. O comando "/ia" do operador retoma a IA.
   if (await estaPausado(agente.id, numero)) {
     await capturarEleitor(agente, numero, nome);
     return NextResponse.json({ ok: true, pausado: true });

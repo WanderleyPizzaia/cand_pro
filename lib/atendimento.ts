@@ -2,18 +2,24 @@ import { queryOne, execute } from "./db";
 
 // ============================================================
 // Controle de atendimento humano x IA por contato.
-// Quando a equipe (Alyson, Sara, Luan, assessoria) assume um contato pelo
-// WhatsApp Web, a IA pausa para aquele contato para não falar por cima do humano.
-// O comando "Deus Abençoe" (digitado pelo operador) ALTERNA: pausa <-> retoma.
+// Quando a equipe assume um contato pelo WhatsApp Web, a IA pausa para aquele
+// contato para não falar por cima do humano. O comando "/ia" (digitado pelo
+// operador na conversa) ALTERNA: pausa <-> retoma.
+//
+// O comando era a frase "Deus Abençoe" — e numa campanha onde a equipe se
+// despede assim o tempo todo, qualquer bênção no fim da mensagem desligava a
+// IA da conversa sem ninguém perceber. Agora é um comando que ninguém escreve
+// por acaso, e só vale quando é a mensagem INTEIRA.
 // A pausa por digitação humana expira sozinha (ver estaPausado); a do comando não.
 // ============================================================
 
-export const COMANDO = "Deus Abençoe";
+export const COMANDO = "/ia";
 
-// Detecta o comando de alternância (sem acento, sem caixa).
+// Detecta o comando de alternância. Exige a mensagem inteira (só espaços e
+// pontuação em volta), para nunca confundir com conversa normal.
 export function contemComando(texto: string | null | undefined): boolean {
-  const t = (texto || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
-  return t.includes("deus abencoe");
+  const t = (texto || "").trim().toLowerCase().replace(/[.!…]+$/, "");
+  return t === "/ia" || t === "/ia on" || t === "/ia off";
 }
 
 // A pausa de "humano assumiu" expira sozinha depois de N horas sem ninguém da

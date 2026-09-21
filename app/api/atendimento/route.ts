@@ -339,7 +339,7 @@ export async function POST(req: NextRequest) {
     if (!r.ok)
       return NextResponse.json({ erro: r.erro || "Falha ao enviar." }, { status: 502 });
 
-    // Humano assumiu → a IA pausa para este contato ("Deus Abençoe" alterna).
+    // Humano assumiu → a IA pausa para este contato (o comando "/ia" alterna).
     if (contemComando(texto)) await alternar(agente.id, contato);
     else await pausar(agente.id, contato);
 

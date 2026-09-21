@@ -158,7 +158,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ erro: r.erro || "Falha ao enviar." }, { status: 502 });
 
   // A equipe respondeu manualmente = assumiu o contato → a IA PAUSA para ele
-  // (não fala por cima). "Deus Abençoe" alterna (pausa <-> devolve pra IA).
+  // (não fala por cima). O comando "/ia" alterna (pausa <-> devolve pra IA).
   let iaPausada = true;
   if (contemComando(texto)) iaPausada = await alternar(agente.id, contato);
   else await pausar(agente.id, contato);

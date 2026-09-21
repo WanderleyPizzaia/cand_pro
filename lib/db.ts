@@ -403,7 +403,7 @@ async function limparDemoAntiga() {
 // aí o próximo boot roda as migrações uma vez e volta a pular. Isto é o que
 // deixa o app rápido: sem o gate, cada lambda fria repetia ~50 comandos DDL +
 // seeds antes da 1ª consulta (o "demora no primeiro clique").
-const SCHEMA_V = "2026-09-20.pausa-expira";
+const SCHEMA_V = "2026-09-20.comando-ia";
 
 async function inicializar() {
   // Gate barato: garante a tabela config e, se o schema já está na versão
@@ -534,7 +534,7 @@ async function inicializar() {
   // sobre o que é confirmado vs estimativa.
   await pool.query(`ALTER TABLE pessoas ADD COLUMN IF NOT EXISTS geo_origem TEXT`);
   // Atendimento humano: quando a equipe assume um contato pelo WhatsApp Web, a IA
-  // pausa para aquele contato (presença = pausado). "Deus Abençoe" alterna.
+  // pausa para aquele contato (presença = pausado). O comando "/ia" alterna.
   await pool.query(`
     CREATE TABLE IF NOT EXISTS atendimento_pausado (
       agente_id BIGINT NOT NULL,
@@ -547,6 +547,10 @@ async function inicializar() {
   await pool.query(
     `ALTER TABLE atendimento_pausado ADD COLUMN IF NOT EXISTS tipo TEXT NOT NULL DEFAULT 'humano'`
   );
+  // Limpeza única: as pausas marcadas como 'comando' até aqui vieram da frase
+  // "Deus Abençoe" disparada sem querer no fim das mensagens. Voltam a ser
+  // 'humano' para expirarem sozinhas em vez de calar a conversa para sempre.
+  await pool.query(`UPDATE atendimento_pausado SET tipo = 'humano' WHERE tipo = 'comando'`);
   // Atribuição de conversa a uma atendente da equipe (transferir atendimento).
   await pool.query(`
     CREATE TABLE IF NOT EXISTS atendimento_atribuicao (
