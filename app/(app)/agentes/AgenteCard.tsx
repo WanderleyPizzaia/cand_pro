@@ -62,6 +62,9 @@ export default function AgenteCard({
   const router = useRouter();
   const [ativo, setAtivo] = useState(!!agente.ativo);
   const [state, setState] = useState<string | null>(null);
+  // Tempo real: a instância aponta para o nosso webhook? null = ainda checando.
+  const [tempoReal, setTempoReal] = useState<boolean | null>(null);
+  const [religando, setReligando] = useState(false);
   const [ajustes, setAjustes] = useState(false);
   const [f, setF] = useState({
     instancia: agente.instancia || "",
@@ -137,6 +140,22 @@ export default function AgenteCard({
     }
   }
 
+  // Reaponta o webhook desta instância para a plataforma (volta o tempo real).
+  async function religarTempoReal() {
+    setReligando(true);
+    try {
+      const r = await fetch("/api/agentes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ acao: "reaplicar_webhooks", id: agente.id }),
+      });
+      const d = await r.json().catch(() => ({}));
+      if (d.ok) setTempoReal(true);
+    } finally {
+      setReligando(false);
+    }
+  }
+
   // ---- Manutenção: sincronizar / limpar / excluir instância ----
   const [dias, setDias] = useState(30);
   const [sincronizando, setSincronizando] = useState(false);
@@ -161,7 +180,11 @@ export default function AgenteCard({
       const r = await fetch(`/api/agentes/conectar?id=${agente.id}`, {
         cache: "no-store",
       });
-      if (r.ok) setState((await r.json()).state ?? null);
+      if (r.ok) {
+        const d = await r.json();
+        setState(d.state ?? null);
+        if (d.tempoReal !== undefined) setTempoReal(d.tempoReal);
+      }
     } catch {
       /* silencioso */
     }
@@ -456,6 +479,17 @@ export default function AgenteCard({
           <span className="tag-oficial" title="WhatsApp Cloud API oficial da Meta">
             ✓ API Oficial
           </span>
+        )}
+        {tempoReal === false && (
+          <button
+            type="button"
+            className="tag-alerta grave"
+            onClick={religarTempoReal}
+            disabled={religando}
+            title="A instância não está apontando para a plataforma: as mensagens só chegam na varredura periódica. Clique para reativar."
+          >
+            {religando ? "Reativando…" : "⚠ Tempo real off · reativar"}
+          </button>
         )}
         {!temIa && (
           <span

@@ -97,8 +97,13 @@ export async function POST(req: NextRequest) {
   // Evolution. Usado uma vez nas instâncias conectadas antes do token.
   if (b.acao === "reaplicar_webhooks") {
     const url = await urlWebhookEvolution(new URL(req.url).origin);
+    // Com `id`, reaplica só naquele número (botão "reativar tempo real").
+    const alvo = Number(b.id) || 0;
     const lista = await query<Agente>(
-      "SELECT * FROM agentes WHERE provedor <> 'meta' AND instancia IS NOT NULL AND instancia <> ''"
+      `SELECT * FROM agentes
+        WHERE provedor <> 'meta' AND instancia IS NOT NULL AND instancia <> ''
+        ${alvo ? "AND id = $1" : ""}`,
+      alvo ? [alvo] : []
     );
     let ok = 0;
     const falhas: string[] = [];

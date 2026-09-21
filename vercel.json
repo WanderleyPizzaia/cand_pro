@@ -3,7 +3,7 @@
   "crons": [
     {
       "path": "/api/whatsapp/puxar",
-      "schedule": "*/5 * * * *"
+      "schedule": "*/2 * * * *"
     }
   ]
 }

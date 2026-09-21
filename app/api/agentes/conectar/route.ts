@@ -10,6 +10,7 @@ import {
   deletarInstancia,
   estadoInstancia,
   buscarFotoPerfil,
+  buscarWebhook,
   slugInstancia,
 } from "@/lib/evolution";
 
@@ -143,7 +144,16 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  return NextResponse.json({ state: r.state });
+  // Tempo real: a instância ainda aponta para o nosso webhook? Se não, as
+  // mensagens só chegam na varredura periódica (plano B) — e a tela avisa.
+  const nossaUrl = await urlWebhookEvolution(new URL(req.url).origin);
+  const w = await buscarWebhook(auth.agente.instancia, auth.agente.apikey);
+  const semParametro = (u: string) => u.split("?")[0];
+  const tempoReal = w.ok
+    ? !!w.ativo && semParametro(w.url || "") === semParametro(nossaUrl)
+    : null; // null = não deu para conferir agora
+
+  return NextResponse.json({ state: r.state, tempoReal, webhookUrl: w.url || null });
 }
 
 // DELETE /api/agentes/conectar?id= -> exclui a instância na Evolution

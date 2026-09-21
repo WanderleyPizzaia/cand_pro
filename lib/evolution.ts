@@ -235,6 +235,30 @@ export async function definirWebhook(
   }
 }
 
+// Lê o webhook configurado na instância. É assim que a tela sabe se o tempo
+// real está de pé: sem webhook, mensagem só chega na próxima varredura.
+export async function buscarWebhook(
+  instancia: string,
+  apikeyOverride?: string | null
+): Promise<{ ok: boolean; url?: string; ativo?: boolean; erro?: string }> {
+  const base = (await getConfig("EVOLUTION_URL")).replace(/\/$/, "");
+  const apikey = apikeyOverride || (await getConfig("EVOLUTION_APIKEY"));
+  if (!base || !apikey) return { ok: false, erro: "Evolution não configurada" };
+  try {
+    const r = await fetch(`${base}/webhook/find/${encodeURIComponent(instancia)}`, {
+      headers: { apikey },
+      cache: "no-store",
+    });
+    if (!r.ok) return { ok: false, erro: `Evolution ${r.status}` };
+    const d = await r.json();
+    // A Evolution ora devolve o objeto direto, ora dentro de `webhook`.
+    const w = d?.webhook && typeof d.webhook === "object" ? d.webhook : d;
+    return { ok: true, url: w?.url || "", ativo: !!(w?.enabled ?? w?.url) };
+  } catch (e: any) {
+    return { ok: false, erro: e.message };
+  }
+}
+
 // Configuração padrão de toda instância do sistema:
 // baixa o histórico ao conectar, ignora grupos e mantém "sempre online".
 export const CONFIG_PADRAO = {

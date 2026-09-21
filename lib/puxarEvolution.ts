@@ -19,8 +19,10 @@ const PAGINAS_POR_CICLO = 3; // 50 mensagens por página
 const JANELA_BUSCA_SEG = 30 * 60;
 // Só responde mensagens recentes: importar histórico não deve disparar IA.
 const JANELA_RESPOSTA_SEG = 15 * 60;
-// Primeira vez para um número novo: pega a última hora, não a vida inteira.
-const PRIMEIRA_CARGA_SEG = 60 * 60;
+// Primeira vez para um número novo: pega as últimas horas, não a vida inteira.
+// (O histórico anterior à conexão vive na Evolution só se ela tiver sincronizado;
+// para trazer o resto existe o botão "Sincronizar" no cartão do agente.)
+const PRIMEIRA_CARGA_SEG = 6 * 60 * 60;
 
 export type ResultadoPuxada = {
   agente: string;
