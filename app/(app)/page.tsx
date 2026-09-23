@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { queryOne, Usuario } from "@/lib/db";
 import { getSessao } from "@/lib/auth";
-import { coletarDashboard } from "@/lib/dashboard";
+import { coletarDashboard, dashboardVazio } from "@/lib/dashboard";
 import CopyLink from "../components/CopyLink";
 import DashboardLive from "./DashboardLive";
 import Icon from "../components/Icon";
@@ -23,7 +23,14 @@ export default async function Dashboard() {
   const meuSlug = eu?.email ?? "";
 
   // Render inicial dos indicadores (depois o componente atualiza sozinho).
-  const inicial = await coletarDashboard(sessao);
+  // Se o banco engasgar, abre zerado em vez de derrubar a página inteira com
+  // "Application error" — os números aparecem no primeiro refresh automático.
+  const inicial = await coletarDashboard(sessao).catch((e) => {
+    console.error("[dashboard] falha ao coletar:", (e as Error).message);
+    return dashboardVazio(
+      sessao.perfil === "LIDER" ? "lider" : sessao.escopoCandidato ? "candidato" : "global"
+    );
+  });
 
   return (
     <>

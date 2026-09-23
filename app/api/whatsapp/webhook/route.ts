@@ -109,6 +109,19 @@ export async function POST(req: NextRequest) {
     const txtOut = conteudoOut.texto;
     // Apagar/editar mensagem não é conversa: não registra nem pausa a IA.
     if (conteudoOut.tipo === "protocolo") return NextResponse.json({ ok: true, protocolo: true });
+    // Reagir com ❤️ não é assumir o atendimento: registra, mas NÃO pausa a IA
+    // (senão um coração numa mensagem cala o agente naquele contato).
+    if (conteudoOut.tipo === "reacao") {
+      const agReacao = await queryOne<Agente>("SELECT * FROM agentes WHERE instancia = $1", [instancia]);
+      if (agReacao)
+        await execute(
+          `INSERT INTO mensagens (agente_id, contato, direcao, texto, wa_id, origem)
+           VALUES ($1, $2, 'out', $3, $4, 'humano')
+           ON CONFLICT (wa_id) WHERE wa_id IS NOT NULL DO NOTHING`,
+          [agReacao.id, rjidOut.split("@")[0], txtOut, waId]
+        );
+      return NextResponse.json({ ok: true, reacao: true });
+    }
     const agOut = await queryOne<Agente>("SELECT * FROM agentes WHERE instancia = $1", [instancia]);
     if (!agOut || !numOut) return NextResponse.json({ ok: true });
     // Anti-corrida: se ACABAMOS de enviar (IA/campanha/inbox) exatamente este texto

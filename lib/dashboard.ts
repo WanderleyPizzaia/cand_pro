@@ -114,6 +114,32 @@ async function tempoRespostaMedio(agenteIds?: number[]): Promise<number | null> 
   return n ? Math.round(soma / n) : null;
 }
 
+// Painel vazio: usado quando o banco engasga, para a tela abrir mesmo assim
+// (o componente ao vivo recarrega os números sozinho segundos depois).
+export function dashboardVazio(escopo: DashboardData["escopo"] = "global"): DashboardData {
+  return {
+    whats: { total: 0, conectados: 0 },
+    lideranca: [],
+    instancias: [],
+    metricas: { mensagens: 0, entrada: 0, saida: 0, tempoRespMedioSeg: null },
+    contatos: { hoje: 0, d7: 0, d15: 0, d30: 0 },
+    totalCadastros: 0,
+    totalCidades: 0,
+    escopo,
+    porCandidato: [],
+    serieContatos: {
+      dias: [],
+      global: [],
+      series: [],
+      hojeIdx: 0,
+      eleicaoIdx: 0,
+      eleicao: "",
+    },
+    metas: [],
+    atualizadoEm: new Date().toISOString(),
+  };
+}
+
 export async function coletarDashboard(sessao: Sessao): Promise<DashboardData> {
   const ehLider = sessao.perfil === "LIDER";
   // Escopado ao candidato: CANDIDATO real OU usuário de equipe vinculado

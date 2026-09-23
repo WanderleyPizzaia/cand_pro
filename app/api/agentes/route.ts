@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { query, queryOne, execute, Agente, quotaEfetiva, disparosUsadosHoje, LIMITES_IA_PADRAO } from "@/lib/db";
+import { query, queryOne, execute, Agente, quotaEfetiva, LIMITES_IA_PADRAO } from "@/lib/db";
 import { getSessao } from "@/lib/auth";
 import { deletarInstancia, definirWebhook } from "@/lib/evolution";
 import { urlWebhookEvolution } from "@/lib/config";
@@ -26,7 +26,10 @@ async function validarDono(valor: any): Promise<number | null | false> {
   return existe ? uid : false;
 }
 
-// GET -> lista agentes com métricas
+// GET -> lista agentes com métricas.
+// Uma consulta só: eram três por agente (total, recebidas hoje, disparos), o
+// que com meia dúzia de números virava ~20 idas ao banco numa requisição — e
+// estourava o tempo da função quando o banco dava uma engasgada.
 export async function GET() {
   if (!podeGerir())
     return NextResponse.json({ erro: "Acesso negado" }, { status: 403 });
@@ -36,45 +39,46 @@ export async function GET() {
     Omit<Agente, "apikey" | "ia_key" | "meta_token"> & {
       tem_ia: boolean;
       tem_meta_token: boolean;
+      total_mensagens: number;
+      recebidas_hoje: number;
+      disparos_hoje: number;
     }
   >(
-    `SELECT id, candidato, foto, instancia, telefone, persona, usuario_id, ativo, criado_em,
-            provedor, meta_phone_id, meta_waba_id, quota_diaria, config,
-            (ia_key IS NOT NULL) AS tem_ia,
-            (meta_token IS NOT NULL) AS tem_meta_token
-       FROM agentes ORDER BY id`
+    `SELECT a.id, a.candidato, a.foto, a.instancia, a.telefone, a.persona, a.usuario_id,
+            a.ativo, a.criado_em, a.provedor, a.meta_phone_id, a.meta_waba_id,
+            a.quota_diaria, a.config,
+            (a.ia_key IS NOT NULL) AS tem_ia,
+            (a.meta_token IS NOT NULL) AS tem_meta_token,
+            COALESCE(m.total, 0)::int AS total_mensagens,
+            COALESCE(m.hoje, 0)::int AS recebidas_hoje,
+            COALESCE(m.disparos, 0)::int AS disparos_hoje
+       FROM agentes a
+       LEFT JOIN (
+         SELECT agente_id,
+                COUNT(*) FILTER (WHERE direcao IN ('in','out')) AS total,
+                COUNT(*) FILTER (
+                  WHERE direcao = 'in'
+                    AND (criado_em AT TIME ZONE 'America/Sao_Paulo')::date
+                      = (now() AT TIME ZONE 'America/Sao_Paulo')::date
+                ) AS hoje,
+                COUNT(*) FILTER (
+                  WHERE direcao = 'out' AND origem = 'campanha'
+                    AND (criado_em AT TIME ZONE 'America/Sao_Paulo')::date
+                      = (now() AT TIME ZONE 'America/Sao_Paulo')::date
+                ) AS disparos
+           FROM mensagens
+          GROUP BY agente_id
+       ) m ON m.agente_id = a.id
+      ORDER BY a.id`
   );
-  const enriquecidos = await Promise.all(
-    agentes.map(async (a) => {
-      const total =
-        (
-          await queryOne<{ c: number }>(
-            "SELECT COUNT(*) c FROM mensagens WHERE agente_id = $1 AND direcao IN ('in','out')",
-            [a.id]
-          )
-        )?.c ?? 0;
-      const hoje =
-        (
-          await queryOne<{ c: number }>(
-            `SELECT COUNT(*) c FROM mensagens
-              WHERE agente_id = $1 AND direcao = 'in'
-                AND (criado_em AT TIME ZONE 'America/Sao_Paulo')::date
-                  = (now() AT TIME ZONE 'America/Sao_Paulo')::date`,
-            [a.id]
-          )
-        )?.c ?? 0;
-      // Cota de disparo: efetiva (própria ou padrão do provedor) e usada hoje.
-      const quota = quotaEfetiva(a as any);
-      const usadoHoje = await disparosUsadosHoje(a.id);
-      return {
-        ...a,
-        totalMensagens: total,
-        recebidasHoje: hoje,
-        quotaEfetiva: quota,
-        disparosHoje: usadoHoje,
-      };
-    })
-  );
+
+  const enriquecidos = agentes.map((a) => ({
+    ...a,
+    totalMensagens: a.total_mensagens,
+    recebidasHoje: a.recebidas_hoje,
+    quotaEfetiva: quotaEfetiva(a as any),
+    disparosHoje: a.disparos_hoje,
+  }));
   return NextResponse.json(enriquecidos);
 }
 
