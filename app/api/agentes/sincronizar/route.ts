@@ -12,6 +12,8 @@ const MAX_PAGINAS = 200; // trava de segurança
 // POST /api/agentes/sincronizar { id, dias }
 // Importa o histórico de mensagens da instância (últimos N dias) para o banco.
 // Idempotente: dedup por wa_id (key.id do WhatsApp) - rodar 2x não duplica.
+// Também preenche o texto de mensagens que ficaram vazias (mídia que o webhook
+// antigo não sabia ler), sem tocar nas que já têm conteúdo.
 export async function POST(req: NextRequest) {
   const s = getSessao();
   if (!s || !["ADMIN", "COORDENACAO"].includes(s.perfil))
@@ -75,7 +77,11 @@ export async function POST(req: NextRequest) {
           `INSERT INTO mensagens
              (agente_id, contato, contato_nome, direcao, texto, criado_em, wa_id, status)
            VALUES ${linhas.join(", ")}
-           ON CONFLICT (wa_id) WHERE wa_id IS NOT NULL DO NOTHING`,
+           ON CONFLICT (wa_id) WHERE wa_id IS NOT NULL DO UPDATE
+             SET texto = EXCLUDED.texto
+             -- Conserta as bolhas vazias já gravadas (mídia que o webhook não
+             -- sabia ler). Mensagem que já tem texto fica como está.
+             WHERE mensagens.texto IS NULL OR btrim(mensagens.texto) = ''`,
           vals
         );
         inseridas += ins;

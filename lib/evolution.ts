@@ -457,6 +457,65 @@ export async function deletarInstancia(
   }
 }
 
+// ============================================================
+// Conteúdo de uma mensagem do WhatsApp em texto legível.
+//
+// O webhook lia só `conversation` e `extendedTextMessage.text`: qualquer coisa
+// que não fosse texto puro (foto, vídeo, áudio, figurinha, documento, legenda,
+// enquete) virava mensagem VAZIA na caixa de entrada — as bolhas em branco.
+// Aqui todo tipo vira um rótulo, e a legenda da mídia (que é o que a pessoa
+// escreveu de fato) tem prioridade.
+// ============================================================
+export type ConteudoMsg = { texto: string; tipo: string };
+
+export function conteudoDaMensagem(msg: any, profundidade = 0): ConteudoMsg {
+  const m = msg || {};
+  // Mensagem dentro de mensagem: efêmera, "ver uma vez", documento com legenda.
+  const embrulho =
+    m.ephemeralMessage?.message ||
+    m.viewOnceMessage?.message ||
+    m.viewOnceMessageV2?.message ||
+    m.viewOnceMessageV2Extension?.message ||
+    m.documentWithCaptionMessage?.message ||
+    m.editedMessage?.message?.protocolMessage?.editedMessage ||
+    null;
+  if (embrulho && profundidade < 3) return conteudoDaMensagem(embrulho, profundidade + 1);
+
+  const txt = m.conversation || m.extendedTextMessage?.text || "";
+  if (txt) return { texto: txt, tipo: "texto" };
+
+  const comLegenda = (rotulo: string, tipo: string, legenda?: string) => ({
+    texto: legenda ? `${rotulo} ${legenda}` : rotulo,
+    tipo,
+  });
+
+  if (m.imageMessage) return comLegenda("📷 Imagem", "imagem", m.imageMessage.caption);
+  if (m.videoMessage) return comLegenda("🎥 Vídeo", "video", m.videoMessage.caption);
+  if (m.audioMessage || m.pttMessage) return { texto: "🎤 Áudio", tipo: "audio" };
+  if (m.stickerMessage) return { texto: "🙂 Figurinha", tipo: "figurinha" };
+  if (m.documentMessage)
+    return comLegenda("📎 Documento", "documento", m.documentMessage.fileName || m.documentMessage.caption);
+  if (m.contactMessage || m.contactsArrayMessage)
+    return comLegenda("👤 Contato", "contato", m.contactMessage?.displayName);
+  if (m.locationMessage || m.liveLocationMessage)
+    return comLegenda("📍 Localização", "local", m.locationMessage?.name);
+  if (m.reactionMessage)
+    return { texto: `Reagiu ${m.reactionMessage.text || ""}`.trim(), tipo: "reacao" };
+  if (m.pollCreationMessage || m.pollCreationMessageV3)
+    return comLegenda("📊 Enquete", "enquete", (m.pollCreationMessage || m.pollCreationMessageV3)?.name);
+  if (m.buttonsResponseMessage || m.templateButtonReplyMessage || m.listResponseMessage)
+    return {
+      texto:
+        m.buttonsResponseMessage?.selectedDisplayText ||
+        m.templateButtonReplyMessage?.selectedDisplayText ||
+        m.listResponseMessage?.title ||
+        "Respondeu um botão",
+      tipo: "botao",
+    };
+  if (m.protocolMessage) return { texto: "", tipo: "protocolo" }; // apagar/editar: não é conversa
+  return { texto: "", tipo: "desconhecida" };
+}
+
 export type MsgEvolution = {
   waId: string;
   numero: string;
@@ -515,15 +574,7 @@ export async function buscarMensagensPagina(
       const waId: string = key?.id ?? "";
       if (!waId || !numero) continue;
       const m = rec?.message ?? {};
-      const texto =
-        m?.conversation ||
-        m?.extendedTextMessage?.text ||
-        (m?.imageMessage ? "[imagem]" : "") ||
-        (m?.audioMessage ? "[áudio]" : "") ||
-        (m?.videoMessage ? "[vídeo]" : "") ||
-        (m?.documentMessage ? "[documento]" : "") ||
-        (m?.stickerMessage ? "[figurinha]" : "") ||
-        "";
+      const { texto } = conteudoDaMensagem(m);
       msgs.push({
         waId,
         numero,

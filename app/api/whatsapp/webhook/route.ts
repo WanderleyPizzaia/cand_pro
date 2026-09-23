@@ -9,6 +9,7 @@ import { contemComando, alternar, pausar, estaPausado } from "@/lib/atendimento"
 import { distribuir } from "@/lib/atendimentoCrm";
 import { saudacaoBot } from "@/lib/botSaudacao";
 import {
+  conteudoDaMensagem,
   enviarTexto,
   buscarFotoPerfil,
   dividirEmMensagens,
@@ -103,8 +104,11 @@ export async function POST(req: NextRequest) {
     const rjidOut: string = jidReal(key);
     if (!rjidOut.endsWith("@s.whatsapp.net")) return NextResponse.json({ ok: true });
     const numOut = rjidOut.split("@")[0];
-    const txtOut =
-      data?.message?.conversation || data?.message?.extendedTextMessage?.text || "";
+    // Qualquer tipo vira texto legível (foto, vídeo, áudio, legenda...).
+    const conteudoOut = conteudoDaMensagem(data?.message);
+    const txtOut = conteudoOut.texto;
+    // Apagar/editar mensagem não é conversa: não registra nem pausa a IA.
+    if (conteudoOut.tipo === "protocolo") return NextResponse.json({ ok: true, protocolo: true });
     const agOut = await queryOne<Agente>("SELECT * FROM agentes WHERE instancia = $1", [instancia]);
     if (!agOut || !numOut) return NextResponse.json({ ok: true });
     // Anti-corrida: se ACABAMOS de enviar (IA/campanha/inbox) exatamente este texto
@@ -140,10 +144,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, ia: "pausada-humano" });
   }
 
-  let texto =
-    data?.message?.conversation ||
-    data?.message?.extendedTextMessage?.text ||
-    "";
+  // Conteúdo da recebida em texto legível. Antes, o que não fosse texto puro
+  // (vídeo, documento, figurinha, legenda de foto) era simplesmente descartado:
+  // o eleitor mandava e não aparecia nada na caixa de entrada.
+  const conteudoIn = conteudoDaMensagem(data?.message);
+  let texto = conteudoIn.tipo === "texto" ? conteudoIn.texto : "";
+  // Rótulo do que veio quando não é texto (para registrar mesmo sem conversa).
+  const rotuloIn = conteudoIn.tipo === "texto" ? "" : conteudoIn.texto;
   // Voz do eleitor: sem texto, mas com áudio (ptt/audioMessage) — transcrevemos.
   const audioMsg =
     data?.message?.audioMessage || data?.message?.pttMessage || null;
@@ -155,8 +162,8 @@ export async function POST(req: NextRequest) {
   const numero = remoteJid.split("@")[0];
   const nome = data?.pushName || null;
 
-  // Precisa de instância, número e (texto OU áudio OU imagem).
-  if (!instancia || !numero || (!texto && !audioMsg && !imageMsg)) {
+  // Precisa de instância, número e algum conteúdo (texto, mídia ou rótulo).
+  if (!instancia || !numero || (!texto && !audioMsg && !imageMsg && !rotuloIn)) {
     return NextResponse.json({ ok: true });
   }
 
@@ -245,6 +252,23 @@ export async function POST(req: NextRequest) {
       await capturarEleitor(agente, numero, nome).catch(() => {});
     }
     return NextResponse.json({ ok: true, imagem: true });
+  }
+
+  // Vídeo, documento, figurinha, contato, localização, enquete: não dá para a
+  // IA responder o conteúdo, mas a conversa precisa aparecer na caixa de
+  // entrada (antes sumia). Registra com o rótulo e entrega para a equipe.
+  if (!texto && rotuloIn) {
+    const ins = await execute(
+      `INSERT INTO mensagens (agente_id, contato, contato_nome, direcao, texto, wa_id)
+       VALUES ($1, $2, $3, 'in', $4, $5)
+       ON CONFLICT (wa_id) WHERE wa_id IS NOT NULL DO NOTHING`,
+      [agente.id, numero, nome, rotuloIn, key?.id || null]
+    );
+    if (ins > 0) {
+      try { await distribuir(agente.id, numero); } catch {}
+      await capturarEleitor(agente, numero, nome).catch(() => {});
+    }
+    return NextResponse.json({ ok: true, tipo: conteudoIn.tipo });
   }
 
   // Registra a mensagem recebida (wa_id = key.id p/ dedup com o sync de histórico).
