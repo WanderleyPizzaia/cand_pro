@@ -272,14 +272,14 @@ export default function TemplatesClient({ agentes }: { agentes: AgenteOpt[] }) {
                               onChange={(e) => setNumTeste(e.target.value)}
                               onKeyDown={(e) => e.key === "Enter" && enviarTeste(t.id)}
                               placeholder="Número com DDD (ex.: 11987654321)"
-                              style={{ flex: 1, padding: "6px 10px", borderRadius: 8, border: "1px solid var(--border,#e3e6ec)" }}
+                              style={{ flex: 1, padding: "6px 10px", borderRadius: 8, border: "1px solid var(--border-2)" }}
                             />
                             <button className="btn btn-primary" disabled={enviandoTeste} onClick={() => enviarTeste(t.id)}>
                               {enviandoTeste ? "…" : "Enviar"}
                             </button>
                           </div>
                           {testMsg && (
-                            <span style={{ fontSize: 12.5, color: testMsg.t === "ok" ? "var(--green,#2c7a4b)" : "var(--red,#c8262b)" }}>
+                            <span style={{ fontSize: 12.5, color: testMsg.t === "ok" ? "var(--green)" : "var(--red)" }}>
                               {testMsg.x}
                             </span>
                           )}

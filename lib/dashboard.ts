@@ -6,6 +6,7 @@ import {
   type MetaProgresso,
 } from "./metas";
 import { agentesDaSessao } from "./escopo";
+import { coletarPendencias, type Pendencia } from "./pendencias";
 
 // ===== Coleta dos indicadores do Dashboard inicial =====
 // Reutilizado pela página (render inicial) e pela API /api/dashboard (real time).
@@ -63,6 +64,10 @@ export type DashboardData = {
   serieContatos: SerieContatos;
   // Metas de captação com progresso ao vivo (filtradas por escopo).
   metas: MetaProgresso[];
+  // "Precisa de você agora": fila, números parados, tarefas e pautas.
+  pendencias: Pendencia[];
+  // Mensagens de hoje (entrada + saída), no escopo.
+  mensagensHoje: number;
   atualizadoEm: string;
 };
 
@@ -136,6 +141,8 @@ export function dashboardVazio(escopo: DashboardData["escopo"] = "global"): Dash
       eleicao: "",
     },
     metas: [],
+    pendencias: [],
+    mensagensHoje: 0,
     atualizadoEm: new Date().toISOString(),
   };
 }
@@ -252,6 +259,15 @@ export async function coletarDashboard(sessao: Sessao): Promise<DashboardData> {
     ? await listarMetasComProgresso(sessao.escopoCandidato || sessao.nome)
     : await listarMetasComProgresso();
 
+  // "Precisa de você agora" (não derruba o painel se uma consulta falhar).
+  const pendencias = await coletarPendencias(sessao)
+    .then((r) => r.itens)
+    .catch((e) => {
+      console.error("[dashboard] pendências:", (e as Error).message);
+      return [] as Pendencia[];
+    });
+  const mensagensHoje = instancias.reduce((s, i) => s + Number(i.mensagensHoje || 0), 0);
+
   return {
     whats: { total: whatsTotal, conectados: whatsConectados },
     lideranca,
@@ -270,6 +286,8 @@ export async function coletarDashboard(sessao: Sessao): Promise<DashboardData> {
     porCandidato,
     serieContatos,
     metas,
+    pendencias,
+    mensagensHoje,
     atualizadoEm: new Date().toISOString(),
   };
 }

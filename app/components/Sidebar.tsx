@@ -1,125 +1,140 @@
 "use client";
 
-import { useState } from "react";
-import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
 import Icon from "./Icon";
 import Logo from "./Logo";
 import AvatarUsuario from "./AvatarUsuario";
-import { ITENS, ROTULO, itemAtivo } from "./navItens";
+import { ROTULO, areasVisiveis, itemAtivo } from "./navItens";
 
+export type Contadores = { fila: number; pautas: number; tarefas: number };
+
+// Selo de cada item do menu: o que está esperando alguém.
+export function seloDoItem(chave: string, c: Contadores): number {
+  if (chave === "conversas") return c.fila;
+  if (chave === "pautas") return c.pautas;
+  if (chave === "tarefas") return c.tarefas;
+  return 0;
+}
+
+export async function sairDoSistema(router: ReturnType<typeof useRouter>) {
+  await fetch("/api/auth/logout", { method: "POST" });
+  router.push("/login");
+  router.refresh();
+}
+
+// Menu lateral (desktop): Início + áreas com título, ajustes e conta no rodapé.
+// Recolhido vira uma faixa só de ícones (o nome aparece no title).
 export default function Sidebar({
   nome,
   perfil,
   foto,
+  contadores,
   onToggle,
+  onBusca,
 }: {
   nome: string;
   perfil: string;
   foto?: string | null;
-  onToggle?: () => void;
+  contadores: Contadores;
+  onToggle: () => void;
+  onBusca: () => void;
 }) {
   const path = usePathname();
   const router = useRouter();
-  const [aberta, setAberta] = useState(false); // drawer no mobile
-
-  async function sair() {
-    await fetch("/api/auth/logout", { method: "POST" });
-    router.push("/login");
-    router.refresh();
-  }
-
-  const visiveis = ITENS.filter((i) => i.perfis.includes(perfil));
-
-  const avatar = (
-    <AvatarUsuario
-      foto={foto}
-      nome={nome}
-      className="user-avatar"
-      iniClassName="user-avatar-ini"
-    />
-  );
+  const areas = areasVisiveis(perfil);
+  const principais = areas.filter((a) => a.chave !== "ajustes");
+  const ajustes = areas.find((a) => a.chave === "ajustes");
 
   return (
-    <>
-      {/* Barra superior - só no mobile. Sem hambúrguer: a navegação é a catraca
-          (dock inferior). Aqui fica só a marca + acesso rápido a config e sair. */}
-      <header className="topbar-mobile">
-        <div className="topbar-brand">
-          <Logo size={17} />
-        </div>
-        <div className="topbar-actions">
-          <Link
-            href={perfil === "ADMIN" ? "/configuracoes" : "/conta"}
-            className="topbar-btn"
-            aria-label="Configurações"
-          >
-            <Icon name="settings" size={19} />
-          </Link>
-          <button className="topbar-btn" onClick={sair} aria-label="Sair">
-            <Icon name="power" size={19} />
-          </button>
-        </div>
-      </header>
+    <aside className="sidebar" aria-label="Menu principal">
+      <div className="sb-top">
+        <Link href="/" className="sb-logo" aria-label="CAND PRO, início">
+          <span className="sb-logo-full">
+            <Logo size={17} />
+          </span>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img className="sb-logo-mark" src="/icons/candpro.svg" alt="" width={30} height={30} />
+        </Link>
+        <button
+          type="button"
+          className="sb-collapse"
+          onClick={onToggle}
+          title="Recolher ou expandir o menu"
+          aria-label="Recolher ou expandir o menu"
+        >
+          <Icon name="chevron-left" size={16} />
+        </button>
+      </div>
 
-      {aberta && (
-        <div className="sidebar-backdrop" onClick={() => setAberta(false)} />
-      )}
+      <button type="button" className="sb-search" onClick={onBusca} title="Buscar (Ctrl K)">
+        <Icon name="search" size={16} />
+        <span className="sb-label">Buscar</span>
+        <kbd className="sb-kbd">Ctrl K</kbd>
+      </button>
 
-      <aside className={`sidebar${aberta ? " aberta" : ""}`}>
-        <div className="sidebar-top">
-          <div className="brand">
-            <Logo size={20} flag />
+      <nav className="sb-nav">
+        {principais.map((area) => (
+          <div className="sb-grupo" key={area.chave}>
+            {area.chave !== "inicio" && <div className="sb-grupo-tit">{area.titulo}</div>}
+            {area.visiveis.map((it) => {
+              const ativo = itemAtivo(it, path);
+              const selo = seloDoItem(it.chave, contadores);
+              return (
+                <Link
+                  key={it.chave}
+                  href={it.href}
+                  className={`sb-item${ativo ? " ativo" : ""}`}
+                  aria-current={ativo ? "page" : undefined}
+                  title={it.label}
+                >
+                  <Icon name={it.icon} size={18} />
+                  <span className="sb-label">{it.label}</span>
+                  {selo > 0 && (
+                    <span className={`sb-badge${it.chave === "conversas" ? " quente" : ""}`}>
+                      {selo > 99 ? "99+" : selo}
+                    </span>
+                  )}
+                </Link>
+              );
+            })}
           </div>
-          {/* Recolher menu (desktop) */}
+        ))}
+      </nav>
+
+      <div className="sb-foot">
+        {ajustes?.visiveis.map((it) => {
+          const ativo = itemAtivo(it, path);
+          return (
+            <Link
+              key={it.chave}
+              href={it.href}
+              className={`sb-item sb-item-sm${ativo ? " ativo" : ""}`}
+              aria-current={ativo ? "page" : undefined}
+              title={it.label}
+            >
+              <Icon name={it.icon} size={17} />
+              <span className="sb-label">{it.label}</span>
+            </Link>
+          );
+        })}
+        <div className="sb-user">
+          <AvatarUsuario foto={foto} nome={nome} className="user-avatar" iniClassName="user-avatar-ini" />
+          <div className="sb-user-meta">
+            <span className="sb-user-nome">{nome}</span>
+            <span className="sb-user-perfil">{ROTULO[perfil] || perfil}</span>
+          </div>
           <button
-            className="sidebar-collapse"
-            onClick={onToggle}
-            title="Recolher menu"
-            aria-label="Recolher menu"
+            type="button"
+            className="sb-sair"
+            onClick={() => sairDoSistema(router)}
+            title="Sair"
+            aria-label="Sair"
           >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="15 18 9 12 15 6" />
-            </svg>
+            <Icon name="power" size={16} />
           </button>
         </div>
-        <div className="brand-sub">Campanha & Gestão · IA</div>
-
-        <nav className="nav">
-          {visiveis.map((i) => (
-            <Link
-              key={i.href}
-              href={i.href}
-              className={itemAtivo(i.href, path) ? "active" : ""}
-              onClick={() => setAberta(false)}
-            >
-              <Icon name={i.icon} size={18} />
-              {i.label}
-            </Link>
-          ))}
-        </nav>
-
-        <div className="user-box">
-          <div className="user-info-row">
-            {avatar}
-            <div className="user-meta">
-              <div className="user-nome">{nome}</div>
-              <div className="user-perfil">{ROTULO[perfil] || perfil}</div>
-            </div>
-            <Link
-              href={perfil === "ADMIN" ? "/configuracoes" : "/conta"}
-              className="btn-gear"
-              title="Configurações"
-              onClick={() => setAberta(false)}
-            >
-              <Icon name="settings" size={16} />
-            </Link>
-          </div>
-          <button className="btn-sair" onClick={sair}>
-            <Icon name="power" size={15} /> Sair
-          </button>
-        </div>
-      </aside>
-    </>
+      </div>
+    </aside>
   );
 }

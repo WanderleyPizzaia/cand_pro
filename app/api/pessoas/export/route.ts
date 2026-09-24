@@ -45,6 +45,8 @@ export async function GET(req: NextRequest) {
   const url = new URL(req.url);
   const candidato = Number(url.searchParams.get("candidato")) || 0; // id do agente
   const busca = (url.searchParams.get("q") ?? "").trim();
+  const categoria = (url.searchParams.get("categoria") ?? "").trim();
+  const cidade = (url.searchParams.get("cidade") ?? "").trim();
 
   // Só as colunas do CSV — NÃO puxa `foto` (base64) nem lat/lng, senão o export
   // carrega megabytes de imagem por linha e estoura o tempo da função.
@@ -71,6 +73,15 @@ export async function GET(req: NextRequest) {
 
   // Filtro por candidato (aba selecionada na tela) — respeita o escopo acima.
   if (candidato > 0) cond.push(`p.agente_id = ${candidato}`);
+  // Filtros de categoria e cidade da tela de Contatos.
+  if (categoria) {
+    params.push(categoria);
+    cond.push(`p.categoria = $${params.length}`);
+  }
+  if (cidade) {
+    params.push(cidade);
+    cond.push(`p.cidade = $${params.length}`);
+  }
 
   // Busca por nome / cidade / whatsapp (mesma busca da tela de Contatos).
   if (busca) {

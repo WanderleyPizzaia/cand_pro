@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import CountUp from "../../components/CountUp";
 import SensorVoto from "./SensorVoto";
+import Icon from "../../components/Icon";
 
 type Etapa = { chave: string; rotulo: string; desc: string; total: number };
 type Meta = { minima: number; objetivo: number; atual: number };
@@ -96,7 +97,7 @@ export default function FunilCliente() {
                   ))}
                 </div>
               </div>
-              {i < d.etapas.length - 1 && <div className="fe-seta" aria-hidden="true">▾</div>}
+              {i < d.etapas.length - 1 && <div className="fe-seta" aria-hidden="true"><Icon name="chevron-down" size={18} /></div>}
             </div>
           );
         })}
@@ -109,7 +110,7 @@ export default function FunilCliente() {
         rel="noopener"
       >
         <div className="bu-txt">
-          <span className="bu-tag">⚡ Boca de Urna Digital</span>
+          <span className="bu-tag com-icone"><Icon name="zap" size={12} /> Boca de Urna Digital</span>
           <b>Fazer disparo em massa</b>
           <small>Fale com o administrador e ative o disparo pra toda a base agora.</small>
         </div>

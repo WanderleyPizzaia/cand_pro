@@ -222,13 +222,15 @@ export default function DisparosCliente({
     <div className="disp-grid">
       {/* ===== Planejamento ===== */}
       <form className="form-card disp-form" onSubmit={disparar}>
-        <div className="disp-form-h"><Icon name="megaphone" size={16} /> Novo disparo</div>
+        <div className="disp-form-h"><Icon name="send" size={16} /> Novo disparo</div>
         {msg && <div className={`msg ${msg.t}`}>{msg.x}</div>}
 
+        <fieldset className="passo">
+        <legend><span className="passo-n">1</span> Quem envia</legend>
         <div className="field">
-          <label>Candidato / número</label>
-          <select value={agenteId} onChange={(e) => setAgenteId(e.target.value)}>
-            <option value="">- escolha -</option>
+          <label htmlFor="disp-numero">Número do candidato</label>
+          <select id="disp-numero" value={agenteId} onChange={(e) => setAgenteId(e.target.value)}>
+            <option value="">Escolha o número…</option>
             {agentes.map((a) => (
               <option key={a.id} value={a.id} disabled={!a.pronto}>
                 {a.candidato}
@@ -239,17 +241,19 @@ export default function DisparosCliente({
             ))}
           </select>
           {agente && (
-            <small style={{ color: saldo > 0 ? "var(--muted)" : "var(--red)", fontSize: 12, marginTop: 4 }}>
-              Cota hoje: {agente.disparosHoje.toLocaleString("pt-BR")} / {agente.quota.toLocaleString("pt-BR")} usados · <b>{saldo.toLocaleString("pt-BR")}</b> restantes
+            <small className={`hint${saldo > 0 ? "" : " erro"}`}>
+              Cota de hoje: {agente.disparosHoje.toLocaleString("pt-BR")} de {agente.quota.toLocaleString("pt-BR")} usados · <b>{saldo.toLocaleString("pt-BR")}</b> restantes
             </small>
           )}
         </div>
+        </fieldset>
 
+        <fieldset className="passo">
+        <legend><span className="passo-n">2</span> Para quem</legend>
         <div className="field">
-          <label>Enviar para</label>
-          <div className="disp-quando">
-            <button type="button" className={`disp-tab${modo === "grupo" ? " ativo" : ""}`} onClick={() => setModo("grupo")}>Grupo (base)</button>
-            <button type="button" className={`disp-tab${modo === "contato" ? " ativo" : ""}`} onClick={() => setModo("contato")}>Contato específico</button>
+          <div className="disp-quando" role="radiogroup" aria-label="Enviar para">
+            <button type="button" role="radio" aria-checked={modo === "grupo"} className={`disp-tab${modo === "grupo" ? " ativo" : ""}`} onClick={() => setModo("grupo")}>Um grupo da base</button>
+            <button type="button" role="radio" aria-checked={modo === "contato"} className={`disp-tab${modo === "contato" ? " ativo" : ""}`} onClick={() => setModo("contato")}>Uma pessoa</button>
           </div>
         </div>
 
@@ -257,15 +261,15 @@ export default function DisparosCliente({
           <>
             <div className="grid2">
               <div className="field">
-                <label>Grupo · cidade</label>
-                <select value={cidade} onChange={(e) => setCidade(e.target.value)}>
+                <label htmlFor="disp-cidade">Cidade</label>
+                <select id="disp-cidade" value={cidade} onChange={(e) => setCidade(e.target.value)}>
                   <option value="">Todas</option>
                   {cidades.map((c) => <option key={c} value={c}>{c}</option>)}
                 </select>
               </div>
               <div className="field">
-                <label>Grupo · categoria</label>
-                <select value={categoria} onChange={(e) => setCategoria(e.target.value)}>
+                <label htmlFor="disp-categoria">Categoria</label>
+                <select id="disp-categoria" value={categoria} onChange={(e) => setCategoria(e.target.value)}>
                   <option value="">Todas</option>
                   {categorias.map((c) => <option key={c} value={c}>{c}</option>)}
                 </select>
@@ -273,8 +277,8 @@ export default function DisparosCliente({
             </div>
 
             <div className="field">
-              <label>
-                Quantidade <span className="muted">(alvo: <b>{alvo.toLocaleString("pt-BR")}</b> · disponível no grupo: {previa ?? "…"})</span>
+              <label htmlFor="disp-qtd">
+                Quantidade <span className="muted">· alvo {alvo.toLocaleString("pt-BR")} · {previa ?? "…"} no grupo</span>
               </label>
               <input
                 type="range"
@@ -284,17 +288,17 @@ export default function DisparosCliente({
                 onChange={(e) => setQuantidade(Number(e.target.value))}
               />
               <input
+                id="disp-qtd"
                 type="number"
                 min={1}
                 value={quantidade}
                 onChange={(e) => setQuantidade(Number(e.target.value))}
-                style={{ marginTop: 6 }}
               />
             </div>
           </>
         ) : (
           <div className="field">
-            <div className="disp-quando" style={{ marginBottom: 8 }}>
+            <div className="disp-quando">
               <button type="button" className={`disp-tab${contatoModo === "base" ? " ativo" : ""}`} onClick={() => setContatoModo("base")}>Buscar na base</button>
               <button type="button" className={`disp-tab${contatoModo === "novo" ? " ativo" : ""}`} onClick={() => setContatoModo("novo")}>Número novo</button>
             </div>
@@ -305,7 +309,7 @@ export default function DisparosCliente({
                 {contatoSel ? (
                   <div className="disp-chip">
                     <span><b>{contatoSel.nome}</b> · {contatoSel.whatsapp}</span>
-                    <button type="button" onClick={() => { setContatoSel(null); setBusca(""); }} aria-label="Trocar contato">✕</button>
+                    <button type="button" onClick={() => { setContatoSel(null); setBusca(""); }} aria-label="Trocar contato"><Icon name="x" size={14} /></button>
                   </div>
                 ) : (
                   <>
@@ -342,16 +346,16 @@ export default function DisparosCliente({
                   value={numeroNovo}
                   onChange={(e) => setNumeroNovo(e.target.value)}
                   placeholder="+55 11 98765-4321"
-                  style={{ borderColor: numeroNovo && !numeroNovoOk ? "var(--red)" : undefined }}
+                  aria-invalid={!!numeroNovo && !numeroNovoOk}
+                  className={numeroNovo && !numeroNovoOk ? "invalido" : undefined}
                 />
                 <input
                   type="text"
                   value={nomeNovo}
                   onChange={(e) => setNomeNovo(e.target.value)}
                   placeholder="Nome (opcional)"
-                  style={{ marginTop: 6 }}
                 />
-                <small style={{ color: "var(--muted)", fontSize: 12, marginTop: 4 }}>
+                <small className="hint">
                   Formato <b>+55 DDD número</b>. O contato é salvo na base (Cadastros) e o envio fica rastreado.
                 </small>
               </>
@@ -359,33 +363,42 @@ export default function DisparosCliente({
           </div>
         )}
 
+        </fieldset>
+
+        <fieldset className="passo">
+        <legend><span className="passo-n">3</span> Mensagem</legend>
         <div className="field">
-          <label>Mensagem</label>
+          <label htmlFor="disp-msg" className="sr-only">Mensagem</label>
           <textarea
+            id="disp-msg"
             value={mensagem}
             onChange={(e) => setMensagem(e.target.value)}
             placeholder="Olá {primeiro_nome}! ..."
-            style={{ minHeight: 100 }}
+            rows={5}
           />
-          <small style={{ color: "var(--muted)", fontSize: 12, marginTop: 4 }}>
+          <small className="hint">
             Personalize com <code>{"{primeiro_nome}"}</code>, <code>{"{nome}"}</code> e <code>{"{cidade}"}</code>.
           </small>
         </div>
+        </fieldset>
 
+        <fieldset className="passo">
+        <legend><span className="passo-n">4</span> Quando</legend>
         <div className="field">
-          <label>Quando</label>
-          <div className="disp-quando">
-            <button type="button" className={`disp-tab${quando === "agora" ? " ativo" : ""}`} onClick={() => setQuando("agora")}>Disparar agora</button>
-            <button type="button" className={`disp-tab${quando === "agendar" ? " ativo" : ""}`} onClick={() => setQuando("agendar")}>Agendar</button>
+          <div className="disp-quando" role="radiogroup" aria-label="Quando enviar">
+            <button type="button" role="radio" aria-checked={quando === "agora"} className={`disp-tab${quando === "agora" ? " ativo" : ""}`} onClick={() => setQuando("agora")}>Enviar agora</button>
+            <button type="button" role="radio" aria-checked={quando === "agendar"} className={`disp-tab${quando === "agendar" ? " ativo" : ""}`} onClick={() => setQuando("agendar")}>Agendar</button>
           </div>
           {quando === "agendar" && (
-            <input type="datetime-local" value={agendadoPara} onChange={(e) => setAgendadoPara(e.target.value)} style={{ marginTop: 8 }} />
+            <input type="datetime-local" aria-label="Data e hora do envio" value={agendadoPara} onChange={(e) => setAgendadoPara(e.target.value)} />
           )}
         </div>
 
         <div className="field">
-          <input type="text" value={titulo} onChange={(e) => setTitulo(e.target.value)} placeholder="Título interno (opcional)" />
+          <label htmlFor="disp-titulo">Nome interno <span className="muted">(opcional, para achar depois)</span></label>
+          <input id="disp-titulo" type="text" value={titulo} onChange={(e) => setTitulo(e.target.value)} placeholder="Ex.: Convite comício Campinas" />
         </div>
+        </fieldset>
 
         <button type="submit" className="btn btn-primary" disabled={enviando}>
           {enviando ? "Processando…" : quando === "agendar" ? "Agendar disparo" : "Disparar agora"}
@@ -415,30 +428,26 @@ export default function DisparosCliente({
               <tbody>
                 {campanhas.map((c) => (
                   <tr key={c.id}>
-                    <td data-label="Quando" style={{ fontSize: 12.5, color: "var(--muted)" }}>
+                    <td data-label="Quando" className="muted">
                       {c.status === "agendada" ? (
-                        <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}><Icon name="clock" size={13} /> {c.agendado_fmt}</span>
+                        <span className="com-icone"><Icon name="clock" size={13} /> {c.agendado_fmt}</span>
                       ) : (
                         c.criado_fmt
                       )}
                     </td>
                     <td data-label="Candidato">{c.agente_nome || "-"}</td>
-                    <td data-label="Responsável" style={{ fontSize: 12.5 }}>{c.responsavel || "-"}</td>
+                    <td data-label="Responsável">{c.responsavel || "-"}</td>
                     <td data-label="Status">
-                      <span className="tag" style={{
-                        color: c.status === "agendada" ? "var(--yellow)"
-                          : c.status === "enviando" ? "var(--accent)"
-                          : c.status === "erro" ? "var(--red)" : "var(--green)",
-                      }}>{c.status}</span>
+                      <span className={`selo ${c.status === "agendada" ? "atencao" : c.status === "enviando" ? "ouro" : c.status === "erro" ? "erro" : "ok"}`}>{c.status}</span>
                     </td>
-                    <td data-label="Enviados" style={{ fontWeight: 700 }}>{Math.max(c.enviados || 0, c.out_real || 0)}/{c.total}</td>
+                    <td data-label="Enviados" className="num forte">{Math.max(c.enviados || 0, c.out_real || 0)}/{c.total}</td>
                     <td data-label="Aguardando" title="Aceitas pela Meta, mas ainda não entregues no aparelho">
-                      {c.aguardando ? <span style={{ color: "var(--yellow)", fontWeight: 700 }}>{c.aguardando}</span> : 0}
+                      {c.aguardando ? <span className="txt-atencao">{c.aguardando}</span> : 0}
                     </td>
                     <td data-label="Entregues">{c.entregues} <span className="muted">({taxa(c.entregues, c.out_real)})</span></td>
                     <td data-label="Lidos">{c.lidos} <span className="muted">({taxa(c.lidos, c.out_real)})</span></td>
-                    <td data-label="Responderam" style={{ color: "var(--green)", fontWeight: 700 }}>
-                      {c.responderam} <span className="muted" style={{ fontWeight: 400 }}>({taxa(c.responderam, c.out_real)})</span>
+                    <td data-label="Responderam" className="txt-ok">
+                      {c.responderam} <span className="muted">({taxa(c.responderam, c.out_real)})</span>
                     </td>
                   </tr>
                 ))}

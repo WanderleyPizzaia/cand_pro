@@ -5,7 +5,8 @@ import { useEffect, useState } from "react";
 type Comp = { chave: string; rotulo: string; valor: number; detalhe: string };
 type Dados = { score: number; nivel: string; atualizadoEm: string; base: number; componentes: Comp[] };
 
-const COR: Record<string, string> = { Fria: "#2c86e8", Morna: "#f0a500", Quente: "#e8730c", "Quentíssima": "#e4002b" };
+// Temperatura do voto, do frio (azul) ao quentíssimo (vermelho), nos tons do sistema.
+const COR: Record<string, string> = { Fria: "#78a2f2", Morna: "#f0b43c", Quente: "#f28a4b", "Quentíssima": "#ef6b63" };
 
 export default function SensorVoto() {
   const [d, setD] = useState<Dados | null>(null);
@@ -18,7 +19,7 @@ export default function SensorVoto() {
   }, []);
 
   if (!d) return null;
-  const cor = COR[d.nivel] || "#2c86e8";
+  const cor = COR[d.nivel] || "#78a2f2";
 
   return (
     <div className="sensor">

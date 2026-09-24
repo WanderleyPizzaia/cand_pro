@@ -2,7 +2,6 @@ import { redirect } from "next/navigation";
 import { getSessao } from "@/lib/auth";
 import { query, Agente } from "@/lib/db";
 import { statusConfig } from "@/lib/config";
-import WhatsTabs from "../agentes/WhatsTabs";
 import CampanhasCliente from "./CampanhasCliente";
 import Icon from "../../components/Icon";
 
@@ -32,7 +31,6 @@ export default async function CampanhasPage() {
         Disparo em massa para listas segmentadas · números comuns (texto livre) e
         oficiais da Meta (template aprovado)
       </p>
-      <WhatsTabs />
 
       {!(st.evolutionUrl && st.evolutionApiKey) && (
         <div className="msg err" style={{ marginBottom: 16 }}>

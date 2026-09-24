@@ -3,6 +3,7 @@ import { query, queryOne, execute } from "@/lib/db";
 import { getSessao } from "@/lib/auth";
 import { backfillGeo, backfillGeoPorTelefone } from "@/lib/geo";
 import { agentesDaSessao } from "@/lib/escopo";
+import { buscarCidade } from "@/lib/cidades";
 
 export const dynamic = "force-dynamic";
 // O backfill de geo pode segurar a request; sem isto a rota herda o default da
@@ -167,12 +168,38 @@ export async function GET(req: NextRequest) {
 
   const totalCidades = cidade ? 1 : cidades.length;
 
+  // Cidade base de cada candidato (Agentes → Ajustes). Líder não vê bases;
+  // candidato/equipe só a do próprio gabinete; filtro de candidato respeitado.
+  const basesRaw = ehLider
+    ? []
+    : await query<{ candidato: string; cidade: string }>(
+        `SELECT a.candidato, a.config->>'base_cidade' AS cidade
+           FROM agentes a
+          WHERE COALESCE(a.config->>'base_cidade','') <> ''
+            ${bound ? `AND a.id IN (${meusIds})` : agente ? `AND a.id = ${agente}` : ""}`
+      );
+  const vistas = new Set<string>();
+  const bases: { cidade: string; candidatos: string[]; lat: number; lng: number }[] = [];
+  for (const b of basesRaw) {
+    const c = buscarCidade(b.cidade);
+    if (!c) continue;
+    const primeiro = (b.candidato || "").trim().split(" ")[0];
+    const existente = bases.find((x) => x.cidade === c.nome);
+    if (existente) {
+      if (!vistas.has(c.nome + primeiro)) existente.candidatos.push(primeiro);
+    } else {
+      bases.push({ cidade: c.nome, candidatos: [primeiro], lat: c.lat, lng: c.lng });
+    }
+    vistas.add(c.nome + primeiro);
+  }
+
   return NextResponse.json({
     pontos,
     pautas,
     cidades: cidades.map((c) => c.cidade),
     agentes,
     ehGlobal,
+    bases,
     resumo: {
       totalCadastros,
       totalCidades,

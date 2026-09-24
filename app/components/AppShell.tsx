@@ -1,16 +1,32 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import Sidebar from "./Sidebar";
-import MobileDock from "./MobileDock";
+import { useCallback, useEffect, useState } from "react";
+import Sidebar, { type Contadores } from "./Sidebar";
+import Topbar from "./Topbar";
+import SubNav from "./SubNav";
+import MobileNav from "./MobileNav";
+import CommandPalette from "./CommandPalette";
 import PageTransition from "./PageTransition";
 import AutoRefresh from "./AutoRefresh";
 import TourGuiado from "./TourGuiado";
-import Notificacoes from "./Notificacoes";
 
-// Casca do app: controla o recolher/expandir da sidebar (persistido no
-// localStorage) e ajusta a largura do conteúdo. A sidebar e o conteúdo são
-// renderizados aqui para que o estado de "recolhido" afete o layout inteiro.
+function lerPref(chave: string): string | null {
+  try {
+    return localStorage.getItem(chave);
+  } catch {
+    return null;
+  }
+}
+function gravarPref(chave: string, valor: string) {
+  try {
+    localStorage.setItem(chave, valor);
+  } catch {
+    /* navegação privada: segue sem lembrar */
+  }
+}
+
+// Casca do app: menu lateral (desktop), barra superior, abas da área,
+// barra de navegação do celular e a busca global (Ctrl K).
 export default function AppShell({
   nome,
   perfil,
@@ -25,49 +41,81 @@ export default function AppShell({
   children: React.ReactNode;
 }) {
   const [collapsed, setCollapsed] = useState(false);
+  const [busca, setBusca] = useState(false);
+  const [contadores, setContadores] = useState<Contadores>({ fila: 0, pautas: 0, tarefas: 0 });
 
   useEffect(() => {
-    if (localStorage.getItem("sidebar-collapsed") === "1") setCollapsed(true);
+    if (lerPref("sidebar-collapsed") === "1") setCollapsed(true);
   }, []);
 
-  function toggle() {
+  const toggle = useCallback(() => {
     setCollapsed((c) => {
-      const n = !c;
-      localStorage.setItem("sidebar-collapsed", n ? "1" : "0");
-      return n;
+      gravarPref("sidebar-collapsed", c ? "0" : "1");
+      return !c;
     });
-  }
+  }, []);
+
+  // Atalhos: Ctrl/Cmd+K em qualquer lugar; "/" quando não está digitando.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const alvo = e.target as HTMLElement | null;
+      const digitando =
+        !!alvo && (alvo.tagName === "INPUT" || alvo.tagName === "TEXTAREA" || alvo.tagName === "SELECT" || alvo.isContentEditable);
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setBusca((b) => !b);
+      } else if (e.key === "/" && !digitando) {
+        e.preventDefault();
+        setBusca(true);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  // Selos do menu (fila, pautas novas, tarefas vencendo): a cada 30 s.
+  useEffect(() => {
+    let vivo = true;
+    const puxar = async () => {
+      if (document.visibilityState === "hidden") return;
+      try {
+        const r = await fetch("/api/contadores", { cache: "no-store" });
+        if (r.ok && vivo) setContadores(await r.json());
+      } catch {
+        /* sem rede: mantém o último valor */
+      }
+    };
+    puxar();
+    const id = setInterval(puxar, 30_000);
+    return () => {
+      vivo = false;
+      clearInterval(id);
+    };
+  }, []);
 
   return (
     <div className={`app${collapsed ? " app-collapsed" : ""}`}>
-      <Sidebar nome={nome} perfil={perfil} foto={foto} onToggle={toggle} />
-
-      {/* Botão flutuante para reabrir quando recolhida (desktop) */}
-      {collapsed && (
-        <button
-          className="sidebar-reopen"
-          onClick={toggle}
-          title="Expandir menu"
-          aria-label="Expandir menu"
-        >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="9 18 15 12 9 6" />
-          </svg>
-        </button>
-      )}
-
-      <main className="main">
-        <AutoRefresh seconds={15} />
-        <PageTransition>{children}</PageTransition>
-      </main>
-
-      {/* Navegação mobile: dock inferior estilo Apple (some no desktop). */}
-      <MobileDock perfil={perfil} />
-
-      {/* Sistema de entusiasmo: sino de novidades + toasts comemorativos. */}
-      <Notificacoes />
-
-      {/* Tour guiado auto-dirigido (candidato vinculado · "Me mostre o sistema") */}
+      <a href="#conteudo" className="pular">
+        Ir para o conteúdo
+      </a>
+      <Sidebar
+        nome={nome}
+        perfil={perfil}
+        foto={foto}
+        contadores={contadores}
+        onToggle={toggle}
+        onBusca={() => setBusca(true)}
+      />
+      <div className="app-col">
+        <Topbar onBusca={() => setBusca(true)} />
+        <main className="main" id="conteudo">
+          <AutoRefresh seconds={15} />
+          <SubNav perfil={perfil} />
+          <PageTransition>{children}</PageTransition>
+        </main>
+      </div>
+      <MobileNav nome={nome} perfil={perfil} foto={foto} contadores={contadores} />
+      <CommandPalette aberto={busca} onFechar={() => setBusca(false)} perfil={perfil} />
       {tour && <TourGuiado />}
     </div>
   );

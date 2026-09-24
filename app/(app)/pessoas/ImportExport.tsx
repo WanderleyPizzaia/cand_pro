@@ -1,22 +1,37 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Icon from "../../components/Icon";
 
 export default function ImportExport() {
   const router = useRouter();
   const sp = useSearchParams();
-  // Exporta respeitando o filtro atual da tela (candidato selecionado + busca).
+  // Exporta respeitando os filtros atuais da tela (candidato, categoria, cidade e busca).
   const exportHref = (() => {
     const p = new URLSearchParams();
-    const cand = sp.get("candidato");
-    const q = sp.get("q");
-    if (cand) p.set("candidato", cand);
-    if (q) p.set("q", q);
+    for (const k of ["candidato", "categoria", "cidade", "q"]) {
+      const v = sp.get(k);
+      if (v) p.set(k, v);
+    }
     const qs = p.toString();
     return "/api/pessoas/export" + (qs ? `?${qs}` : "");
   })();
+  const [menu, setMenu] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!menu) return;
+    const fora = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenu(false);
+    };
+    const esc = (e: KeyboardEvent) => e.key === "Escape" && setMenu(false);
+    document.addEventListener("mousedown", fora);
+    document.addEventListener("keydown", esc);
+    return () => {
+      document.removeEventListener("mousedown", fora);
+      document.removeEventListener("keydown", esc);
+    };
+  }, [menu]);
   const inputRef = useRef<HTMLInputElement>(null);
   const [msg, setMsg] = useState<{ t: "ok" | "err"; x: string } | null>(null);
   const [importando, setImportando] = useState(false);
@@ -90,45 +105,62 @@ export default function ImportExport() {
 
   return (
     <div className="acoes-sub">
-      <a href={exportHref} className="btn btn-ghost">
-        <Icon name="download" size={16} /> Exportar CSV
-      </a>
-      <button
-        type="button"
-        className="btn btn-ghost"
-        onClick={() => inputRef.current?.click()}
-        disabled={importando}
-      >
-        {importando ? "Importando…" : <><Icon name="upload" size={16} /> Importar CSV</>}
-      </button>
-      <button
-        type="button"
-        className="btn btn-ghost"
-        onClick={sincronizarFotos}
-        disabled={sincFotos}
-        title="Busca foto de perfil do WhatsApp para cada contato"
-      >
-        {sincFotos ? "Buscando fotos…" : <><Icon name="download" size={16} /> Sync fotos</>}
-      </button>
+      <div className="menu-wrap" ref={menuRef}>
+        <button
+          type="button"
+          className="btn btn-ghost"
+          onClick={() => setMenu((m) => !m)}
+          aria-expanded={menu}
+          aria-haspopup="menu"
+          disabled={importando || sincFotos}
+        >
+          {importando ? (
+            "Importando…"
+          ) : sincFotos ? (
+            "Buscando fotos…"
+          ) : (
+            <>
+              <Icon name="file-text" size={16} /> Planilha <Icon name="chevron-down" size={14} />
+            </>
+          )}
+        </button>
+        {menu && (
+          <div className="menu menu-dir" role="menu">
+            <a href={exportHref} role="menuitem" onClick={() => setMenu(false)}>
+              <Icon name="download" size={16} /> Exportar CSV (com os filtros atuais)
+            </a>
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                setMenu(false);
+                inputRef.current?.click();
+              }}
+            >
+              <Icon name="upload" size={16} /> Importar CSV
+            </button>
+            <hr />
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                setMenu(false);
+                sincronizarFotos();
+              }}
+            >
+              <Icon name="refresh" size={16} /> Buscar fotos do WhatsApp
+            </button>
+          </div>
+        )}
+      </div>
       <input
         ref={inputRef}
         type="file"
         accept=".csv,text/csv"
         onChange={aoEscolher}
-        style={{ display: "none" }}
+        hidden
       />
-      {msg && (
-        <span
-          className="acoes-msg"
-          style={{
-            fontSize: 13,
-            fontWeight: 600,
-            color: msg.t === "ok" ? "var(--green)" : "var(--red)",
-          }}
-        >
-          {msg.x}
-        </span>
-      )}
+      {msg && <span className={`acoes-msg ${msg.t === "ok" ? "ok" : "err"}`}>{msg.x}</span>}
     </div>
   );
 }

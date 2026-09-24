@@ -7,7 +7,6 @@ import ReaplicarWebhooks from "./ReaplicarWebhooks";
 import NovoAgente from "./NovoAgente";
 import BulkAtivar from "./BulkAtivar";
 import SincronizarContatos from "./SincronizarContatos";
-import WhatsTabs from "./WhatsTabs";
 import CopyLink from "../../components/CopyLink";
 import Icon from "../../components/Icon";
 
@@ -84,7 +83,6 @@ export default async function AgentesPage() {
         Um agente por candidato. Configure a instância e ligue para responder
         automaticamente.
       </p>
-      <WhatsTabs />
 
       {!pronto && (
         <div className="msg err" style={{ marginBottom: 18 }}>

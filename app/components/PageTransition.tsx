@@ -2,8 +2,8 @@
 
 import { usePathname } from "next/navigation";
 
-// Anima TODO o conteúdo da página a cada navegação (sem tela de carregamento).
-// A key=pathname força remontar e reanimar ao trocar de tela.
+// Entrada curta a cada troca de tela (150 ms, só opacidade). Numa ferramenta
+// aberta o dia inteiro, a animação não pode virar espera.
 export default function PageTransition({
   children,
 }: {

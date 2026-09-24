@@ -6,7 +6,8 @@ import type { DashboardData, CandidatoStat, SerieContatos } from "@/lib/dashboar
 import type { MetaProgresso, Metrica } from "@/lib/metas";
 import type { Perfil } from "@/lib/auth";
 import CountUp from "../components/CountUp";
-import Icon from "../components/Icon";
+import Icon, { IconName } from "../components/Icon";
+import type { Pendencia } from "@/lib/pendencias";
 
 type Janela = "hoje" | "d7" | "d15" | "d30";
 const ABAS: { chave: Janela; rotulo: string }[] = [
@@ -67,108 +68,227 @@ export default function DashboardLive({
   }, []);
 
   const ehCandidato = data.escopo === "candidato";
+  const serie = data.serieContatos;
+  const spark = serie.global
+    .slice(Math.max(0, serie.hojeIdx - 13), serie.hojeIdx + 1)
+    .map((v) => (typeof v === "number" ? v : 0));
 
   return (
     <>
+      {/* ===== O que precisa de alguém agora ===== */}
+      {data.escopo !== "lider" && <Agora itens={data.pendencias} />}
+
       {/* ===== Indicadores principais ===== */}
       <div className="kpis">
-        <Link href="/pessoas" className="kpi kpi-link kpi-destaque">
-          <div className="label">
-            <span className="kpi-live"><span className="kpi-live-dot" />AO VIVO</span> Contatos na base
-          </div>
-          <div className="value accent">
-            <CountUp value={data.totalCadastros} delay={0} />
-          </div>
-          <div className="kpi-go">Ver contatos →</div>
-        </Link>
-        <Link href={ehCandidato ? "/inbox" : "/agentes"} className="kpi kpi-link">
-          <div className="label">{ehCandidato ? "Seus números" : "Números de WhatsApp"}</div>
-          <div className="value">
-            <CountUp value={data.whats.total} delay={120} />
+        <Link href="/pessoas" className="kpi kpi-link">
+          <div className="label">Contatos na base</div>
+          <div className="kpi-linha">
+            <div className="value accent">
+              <CountUp value={data.totalCadastros} />
+            </div>
+            {spark.length > 1 && <Sparkline valores={spark} />}
           </div>
           <div className="kpi-sub">
-            <span className={data.whats.conectados ? "stat-on" : "stat-off"}>
-              ● {data.whats.conectados} conectado{data.whats.conectados === 1 ? "" : "s"}
-            </span>
+            {data.contatos.d7 > 0 ? (
+              <span className="kpi-delta up">+{nf(data.contatos.d7)} em 7 dias</span>
+            ) : (
+              "nenhum novo nos últimos 7 dias"
+            )}
           </div>
         </Link>
-        <Link href="/inbox" className="kpi kpi-link">
-          <div className="label">Mensagens (WhatsApp)</div>
-          <div className="value">
-            <CountUp value={data.metricas.mensagens} delay={240} />
+        {data.escopo !== "lider" && (
+          <Link href={ehCandidato ? "/meu-agente" : "/agentes"} className="kpi kpi-link">
+            <div className="label">{ehCandidato ? "Seus números" : "Números de WhatsApp"}</div>
+            <div className="value">
+              <CountUp value={data.whats.total} />
+            </div>
+            <div className="kpi-sub">
+              <span className={data.whats.conectados ? "stat-on" : "stat-off"}>
+                {data.whats.conectados} respondendo
+              </span>
+              {data.whats.total - data.whats.conectados > 0 && (
+                <> · {data.whats.total - data.whats.conectados} parado{data.whats.total - data.whats.conectados === 1 ? "" : "s"}</>
+              )}
+            </div>
+          </Link>
+        )}
+        {data.escopo !== "lider" && (
+          <Link href="/atendimento" className="kpi kpi-link">
+            <div className="label">Mensagens hoje</div>
+            <div className="value">
+              <CountUp value={data.mensagensHoje} />
+            </div>
+            <div className="kpi-sub">
+              {nf(data.metricas.mensagens)} no total · {nf(data.metricas.entrada)} recebidas
+            </div>
+          </Link>
+        )}
+        {data.escopo !== "lider" && (
+          <Link href="/atendimento" className="kpi kpi-link">
+            <div className="label">1ª resposta (média)</div>
+            <div className="value">{fmtTempo(data.metricas.tempoRespMedioSeg)}</div>
+            <div className="kpi-sub">tempo até responder · últimos 30 dias</div>
+          </Link>
+        )}
+        {data.escopo === "lider" && (
+          <div className="kpi">
+            <div className="label">Novos hoje</div>
+            <div className="value">
+              <CountUp value={data.contatos.hoje} />
+            </div>
+            <div className="kpi-sub">{nf(data.contatos.d30)} nos últimos 30 dias</div>
           </div>
-          <div className="kpi-sub">
-            ↓ {nf(data.metricas.entrada)} recebidas · ↑ {nf(data.metricas.saida)} enviadas
-          </div>
-        </Link>
-        <Link href="/atendimento" className="kpi kpi-link">
-          <div className="label">Tempo médio de resposta</div>
-          <div className="value">{fmtTempo(data.metricas.tempoRespMedioSeg)}</div>
-          <div className="kpi-sub">primeira resposta · últimos 30 dias</div>
-        </Link>
+        )}
       </div>
 
-      {/* ===== CONTAGEM REGRESSIVA + RELÓGIO DE BRASÍLIA (ao vivo) ===== */}
-      <div className="cd-band">
-        <ContagemRegressiva />
-        <RelogioBrasilia />
-      </div>
+      <div className="inicio-grid">
+        {/* ===== CONTATOS ACUMULADOS ===== */}
+        {serie.dias.length > 0 && (
+          <section className="map-panel inicio-graf">
+            <h3>
+              <Icon name="user-plus" size={16} /> Contatos acumulados{" "}
+              <span className="muted h3-sub">
+                {data.escopo === "lider" ? "seus cadastros" : ehCandidato ? "seus números" : "total e por candidato"}
+              </span>
+            </h3>
+            <GraficoAcumulado serie={serie} porInstancia={!ehCandidato} />
+          </section>
+        )}
 
-      {/* ===== CONTATOS ACUMULADOS (gerencial) ===== */}
-      {data.serieContatos.dias.length > 0 && (
-        <div className="map-panel" style={{ marginTop: 18 }}>
-          <h3><Icon name="user-plus" size={16} /> Contatos acumulados {ehCandidato ? "(seu número)" : "(global + por instância)"}</h3>
-          <GraficoAcumulado serie={data.serieContatos} porInstancia={!ehCandidato} />
-        </div>
-      )}
+        {/* ===== Novos cadastros (filtro hoje/7/15/30) ===== */}
+        <section className="map-panel inicio-novos">
+          <h3>Novos cadastros</h3>
+          <div className="filtro-tabs">
+            {ABAS.map((a) => (
+              <button
+                key={a.chave}
+                type="button"
+                className={`filtro-tab${janela === a.chave ? " ativo" : ""}`}
+                onClick={() => setJanela(a.chave)}
+              >
+                {a.rotulo}
+              </button>
+            ))}
+          </div>
+          <div className="big-num accent">
+            <CountUp value={data.contatos[janela]} />
+          </div>
+          <div className="big-num-sub">
+            {janela === "hoje" ? "cadastrados hoje" : `nos últimos ${janela.replace("d", "")} dias`}
+          </div>
+          {data.lideranca.length > 0 && (
+            <div className="inicio-ranking">
+              <span className="rotulo">Quem mais cadastra</span>
+              {data.lideranca.slice(0, 5).map((l, i) => (
+                <div key={l.nome + i} className="rank-item">
+                  <span>
+                    <span className="rank-pos">{i + 1}</span> {l.nome}
+                  </span>
+                  <b className="n">{nf(l.total)}</b>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      </div>
 
       {/* ===== METAS (progresso da captação) ===== */}
       <MetasSecao metas={data.metas} podeGerir={podeGerir} candidatos={data.porCandidato.map((c) => c.candidato)} onMudou={buscar} />
 
       {/* ===== VISÃO POR CANDIDATO (gestão) ===== */}
       {data.porCandidato.length > 0 && (
-        <div className="map-panel" style={{ marginTop: 18 }}>
-          <h3><Icon name="user-plus" size={16} /> Visão por candidato</h3>
+        <section className="map-panel secao">
+          <h3>
+            <Icon name="users" size={16} /> Por candidato
+          </h3>
           <div className="cand-grid">
             {data.porCandidato.map((c) => (
               <CandidatoCard key={c.candidato} c={c} />
             ))}
           </div>
-        </div>
+        </section>
       )}
-
-      {/* ===== Novos cadastros (filtro 7/15/30) ===== */}
-      <div className="map-panel" style={{ marginTop: 18 }}>
-        <h3>Novos cadastros</h3>
-        <div className="filtro-tabs">
-          {ABAS.map((a) => (
-            <button
-              key={a.chave}
-              className={`filtro-tab${janela === a.chave ? " ativo" : ""}`}
-              onClick={() => setJanela(a.chave)}
-            >
-              {a.rotulo}
-            </button>
-          ))}
-        </div>
-        <div className="big-num accent">
-          <CountUp value={data.contatos[janela]} />
-        </div>
-        <div className="big-num-sub">
-          novos cadastros ·{" "}
-          {janela === "hoje" ? "hoje" : `últimos ${janela.replace("d", "")} dias`}
-        </div>
-      </div>
 
       <div className={`live-badge${vivo ? "" : " off"}`}>
         <span className="live-dot" />
-        {vivo ? "Atualizando em tempo real (a cada 15s)" : "Reconectando…"}
+        {vivo ? "Atualizando sozinho a cada 15 s" : "Sem conexão. Tentando de novo…"}
       </div>
     </>
   );
 }
 
-const CORES_SERIE = ["var(--accent)", "var(--green)", "var(--yellow)", "var(--red)", "#8b5cf6", "#06b6d4"];
+const TOM_ICONE: Record<Pendencia["tom"], IconName> = {
+  erro: "chat",
+  atencao: "alert",
+  info: "clock",
+};
+const CHAVE_ICONE: Record<Pendencia["chave"], IconName> = {
+  fila: "chat",
+  parados: "plug",
+  tarefas: "tasks",
+  pautas: "inbox",
+};
+
+// "Precisa de você agora": o que está parado esperando a equipe.
+function Agora({ itens }: { itens: Pendencia[] }) {
+  return (
+    <section className="agora" aria-labelledby="agora-tit">
+      <h2 id="agora-tit" className="agora-tit">Precisa de você agora</h2>
+      {itens.length === 0 ? (
+        <div className="agora-ok">
+          <Icon name="check" size={18} />
+          <span>
+            <b>Tudo em dia.</b> Nenhuma conversa na fila, número parado, tarefa vencida ou pauta sem triagem.
+          </span>
+        </div>
+      ) : (
+        <ul className="agora-lista">
+          {itens.map((p) => (
+            <li key={p.chave}>
+              <Link href={p.href} className={`agora-item tom-${p.tom}`}>
+                <span className="agora-ic">
+                  <Icon name={CHAVE_ICONE[p.chave] || TOM_ICONE[p.tom]} size={18} />
+                </span>
+                <span className="agora-txt">
+                  <b>{p.titulo}</b>
+                  {p.detalhe && <span>{p.detalhe}</span>}
+                </span>
+                <span className="agora-acao">
+                  <span className="agora-acao-txt">{p.acao}</span> <Icon name="arrow-right" size={14} />
+                </span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+// Minigráfico dos últimos 14 dias (contatos acumulados).
+function Sparkline({ valores }: { valores: number[] }) {
+  const W = 84,
+    H = 28;
+  const min = Math.min(...valores);
+  const max = Math.max(...valores);
+  const esc = max - min || 1;
+  const pts = valores.map((v, i) => [
+    (i / (valores.length - 1)) * (W - 4) + 2,
+    H - 3 - ((v - min) / esc) * (H - 6),
+  ]);
+  const d = pts.map(([x, y], i) => `${i ? "L" : "M"}${x.toFixed(1)} ${y.toFixed(1)}`).join(" ");
+  const area = `${d} L${pts[pts.length - 1][0].toFixed(1)} ${H} L${pts[0][0].toFixed(1)} ${H} Z`;
+  const [ux, uy] = pts[pts.length - 1];
+  return (
+    <svg className="spark" viewBox={`0 0 ${W} ${H}`} width={W} height={H} aria-hidden="true">
+      <path d={area} fill="var(--accent-soft)" />
+      <path d={d} fill="none" stroke="var(--accent)" strokeWidth={1.6} strokeLinejoin="round" strokeLinecap="round" />
+      <circle cx={ux} cy={uy} r={2.4} fill="var(--accent)" />
+    </svg>
+  );
+}
+
+const CORES_SERIE = ["var(--accent)", "var(--blue)", "var(--green)", "var(--violet)", "var(--yellow)", "var(--red)"];
 
 // Arredonda o topo do eixo para um número "redondo" (passos 1/2/5 × 10^n),
 // para os rótulos do eixo Y ficarem limpos (10.000, 20.000…) em vez de quebrados.
@@ -176,70 +296,9 @@ function eixoMax(valor: number, traços: number): number {
   const raw = Math.max(1, valor) / traços;
   const mag = Math.pow(10, Math.floor(Math.log10(raw)));
   const norm = raw / mag;
-  const passo = (norm <= 1 ? 1 : norm <= 2 ? 2 : norm <= 5 ? 5 : 10) * mag;
+  // Passo mínimo 1: contagem é inteira (evita eixo "2, 2, 1, 1, 0" com base pequena).
+  const passo = Math.max(1, (norm <= 1 ? 1 : norm <= 2 ? 2 : norm <= 5 ? 5 : 10) * mag);
   return passo * traços;
-}
-
-// Data/hora da votação (1º turno 2026, abertura das urnas 8h, horário de Brasília).
-const ELEICAO_TS = new Date("2026-10-04T08:00:00-03:00").getTime();
-
-// Relógio compartilhado: só começa após montar (evita divergência de hidratação SSR).
-function useAgora(intervaloMs = 1000): number | null {
-  const [agora, setAgora] = useState<number | null>(null);
-  useEffect(() => {
-    setAgora(Date.now());
-    const id = setInterval(() => setAgora(Date.now()), intervaloMs);
-    return () => clearInterval(id);
-  }, [intervaloMs]);
-  return agora;
-}
-
-function ContagemRegressiva() {
-  const agora = useAgora(1000);
-  const diff = agora == null ? null : Math.max(0, ELEICAO_TS - agora);
-  const s = diff == null ? null : Math.floor(diff / 1000);
-  const dias = s == null ? null : Math.floor(s / 86400);
-  const horas = s == null ? null : Math.floor((s % 86400) / 3600);
-  const min = s == null ? null : Math.floor((s % 3600) / 60);
-  const seg = s == null ? null : s % 60;
-  const p2 = (x: number | null) => (x == null ? "--" : String(x).padStart(2, "0"));
-  return (
-    <div className="cd-card">
-      <div className="cd-label"><Icon name="trophy" size={15} /> Contagem regressiva · Votação 1º turno</div>
-      <div className="cd-nums">
-        <div className="cd-un"><b>{dias == null ? "--" : dias}</b><span>dias</span></div>
-        <div className="cd-un"><b>{p2(horas)}</b><span>horas</span></div>
-        <div className="cd-un"><b>{p2(min)}</b><span>min</span></div>
-        <div className="cd-un"><b>{p2(seg)}</b><span>seg</span></div>
-      </div>
-      <div className="cd-sub">Domingo, 04 de outubro de 2026 · urnas às 8h</div>
-    </div>
-  );
-}
-
-function RelogioBrasilia() {
-  const agora = useAgora(1000);
-  const hora =
-    agora == null
-      ? "--:--:--"
-      : new Date(agora).toLocaleTimeString("pt-BR", { timeZone: "America/Sao_Paulo", hour12: false });
-  const data =
-    agora == null
-      ? ""
-      : new Date(agora).toLocaleDateString("pt-BR", {
-          timeZone: "America/Sao_Paulo",
-          weekday: "long",
-          day: "2-digit",
-          month: "long",
-          year: "numeric",
-        });
-  return (
-    <div className="cd-card relogio">
-      <div className="cd-label"><Icon name="clock" size={15} /> Horário de Brasília <span className="kpi-live" style={{ marginLeft: 6 }}><span className="kpi-live-dot" />AO VIVO</span></div>
-      <div className="rl-hora">{hora}</div>
-      <div className="cd-sub" style={{ textTransform: "capitalize" }}>{data || " "}</div>
-    </div>
-  );
 }
 
 function GraficoAcumulado({ serie, porInstancia }: { serie: SerieContatos; porInstancia: boolean }) {
@@ -293,7 +352,7 @@ function GraficoAcumulado({ serie, porInstancia }: { serie: SerieContatos; porIn
             );
           })}
           {/* área + linha global (só até hoje) */}
-          <path d={area(serie.global)} fill="var(--accent)" opacity={0.12} />
+          <path d={area(serie.global)} fill="var(--accent)" opacity={0.1} />
           <path d={linha(serie.global)} fill="none" stroke="var(--accent)" strokeWidth={2.4} strokeLinejoin="round" strokeLinecap="round" />
           {/* linhas por instância */}
           {series.map((s, i) => (
@@ -301,17 +360,17 @@ function GraficoAcumulado({ serie, porInstancia }: { serie: SerieContatos; porIn
           ))}
           {/* ponto de HOJE (onde a coleta está) */}
           {typeof vHoje === "number" && (
-            <circle cx={x(hIdx)} cy={y(vHoje)} r={3.6} fill="var(--accent)" stroke="#fff" strokeWidth={1.5} />
+            <circle cx={x(hIdx)} cy={y(vHoje)} r={4} fill="var(--accent)" stroke="var(--panel)" strokeWidth={2} />
           )}
           {/* MARCO da votação: linha vermelha tracejada + bandeira no topo */}
-          <line x1={xElei} y1={PT} x2={xElei} y2={H - PB} stroke="#ed1c24" strokeWidth={2} strokeDasharray="5 4" />
-          <circle cx={xElei} cy={PT + 1} r={3.4} fill="#ed1c24" />
+          <line x1={xElei} y1={PT} x2={xElei} y2={H - PB} stroke="var(--red)" strokeWidth={1.6} strokeDasharray="5 4" />
+          <circle cx={xElei} cy={PT + 1} r={3.4} fill="var(--red)" />
           {/* rótulos X (início · hoje · votação) */}
           <text x={PL} y={H - 12} textAnchor="start" className="graf-eixo">{fmtDia(serie.dias[0])}</text>
           {hIdx > 4 && hIdx < n - 8 && (
             <text x={x(hIdx)} y={H - 12} textAnchor="middle" className="graf-eixo">hoje</text>
           )}
-          <text x={W - PR} y={H - 12} textAnchor="end" className="graf-eixo" fill="#ed1c24">votação {fmtDia(serie.eleicao)}</text>
+          <text x={W - PR} y={H - 12} textAnchor="end" className="graf-eixo graf-eixo-alerta">votação {fmtDia(serie.eleicao)}</text>
         </svg>
       </div>
       <div className="graf-legenda">
@@ -322,7 +381,7 @@ function GraficoAcumulado({ serie, porInstancia }: { serie: SerieContatos; porIn
           </span>
         ))}
         <span className="graf-item" style={{ marginLeft: "auto" }}>
-          <i style={{ background: "#ed1c24" }} /> Votação {fmtDia(serie.eleicao)} · faltam <b>{faltam}</b> dias
+          <i style={{ background: "var(--red)" }} /> Votação {fmtDia(serie.eleicao)} · faltam <b>{faltam}</b> dias
         </span>
       </div>
     </div>
@@ -335,7 +394,7 @@ function CandidatoCard({ c }: { c: CandidatoStat }) {
     <div className="cand-card">
       <div className="cand-head">
         <span className="cand-nome">{c.candidato}</span>
-        <span className={`cand-status ${c.ativo ? "on" : "off"}`}>● {c.ativo ? "ativo" : "parado"}</span>
+        <span className={`cand-status ${c.ativo ? "on" : "off"}`}><i aria-hidden="true" /> {c.ativo ? "ativo" : "parado"}</span>
       </div>
       <div className="cand-metrics">
         <div><b>{nf(c.alcance)}</b><span>alcançados</span></div>
@@ -407,12 +466,12 @@ function MetasSecao({
   }
 
   return (
-    <div className="map-panel" style={{ marginTop: 18 }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-        <h3 style={{ margin: 0 }}><Icon name="tasks" size={16} /> Metas de captação</h3>
+    <section className="map-panel secao">
+      <div className="panel-head">
+        <h3><Icon name="flag" size={16} /> Metas de captação</h3>
         {podeGerir && (
-          <button className="btn btn-ghost" style={{ padding: "6px 12px" }} onClick={() => setAbrir((v) => !v)}>
-            {abrir ? "Fechar" : "+ Nova meta"}
+          <button type="button" className="btn btn-sm btn-ghost" onClick={() => setAbrir((v) => !v)}>
+            {abrir ? "Fechar" : <><Icon name="plus" size={14} /> Nova meta</>}
           </button>
         )}
       </div>
@@ -471,7 +530,7 @@ function MetasSecao({
       )}
 
       {metas.length === 0 ? (
-        <div className="empty" style={{ marginTop: 10 }}>
+        <div className="empty empty-sm">
           Nenhuma meta ainda.{podeGerir ? " Crie uma para acompanhar o progresso da captação." : ""}
         </div>
       ) : (
@@ -489,7 +548,7 @@ function MetasSecao({
                 <div className="meta-num">
                   <b>{nf(m.atual)}</b> / {nf(m.alvo)}
                   {podeGerir && (
-                    <button className="meta-del" onClick={() => excluir(m.id)} aria-label="Remover">✕</button>
+                    <button type="button" className="meta-del" onClick={() => excluir(m.id)} aria-label="Remover meta"><Icon name="x" size={14} /></button>
                   )}
                 </div>
               </div>
@@ -504,6 +563,6 @@ function MetasSecao({
           ))}
         </div>
       )}
-    </div>
+    </section>
   );
 }
