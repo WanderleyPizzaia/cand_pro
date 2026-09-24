@@ -7,7 +7,11 @@ export const dynamic = "force-dynamic";
 
 const PERMITIDOS = ["ADMIN", "COORDENACAO", "MARKETING", "CANDIDATO", "ATENDENTE"];
 
-export default async function AtendimentoPage() {
+export default async function AtendimentoPage({
+  searchParams,
+}: {
+  searchParams: { view?: string };
+}) {
   const sessao = getSessao()!;
   if (!PERMITIDOS.includes(sessao.perfil)) redirect("/");
 
@@ -17,10 +21,10 @@ export default async function AtendimentoPage() {
         <Icon name="chat" /> Atendimento
       </h1>
       <p className="page-sub">
-        Inbox da equipe · conversas distribuídas automaticamente, cada uma travada
-        no seu atendente. A IA responde até alguém assumir.
+        Fila da equipe: cada conversa fica com um atendente. A IA responde até
+        alguém assumir.
       </p>
-      <AtendimentoCliente />
+      <AtendimentoCliente viewInicial={searchParams.view} />
     </>
   );
 }

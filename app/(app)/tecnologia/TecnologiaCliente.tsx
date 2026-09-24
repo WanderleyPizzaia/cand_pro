@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import Icon from "../../components/Icon";
-import PlanejamentoDisparos from "./PlanejamentoDisparos";
 
 type Resumo = {
   investido: number; taxaPct: number; taxaServico: number;
@@ -15,16 +14,14 @@ type Lanc = { id: number; tipo: string; valor: number; descricao: string | null;
 const brl = (n: number) => n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
 export default function TecnologiaCliente() {
-  const [aba, setAba] = useState<"financeiro" | "planejamento" | "discurso">("financeiro");
+  const [aba, setAba] = useState<"financeiro" | "discurso">("financeiro");
   return (
     <div className="tec-wrap">
       <div className="tec-tabs">
-        <button className={aba === "planejamento" ? "on" : ""} onClick={() => setAba("planejamento")}><Icon name="matriz" size={16} /> Planejamento</button>
-        <button className={aba === "discurso" ? "on" : ""} onClick={() => setAba("discurso")}><Icon name="megaphone" size={16} /> Discurso</button>
-        <button className={aba === "financeiro" ? "on" : ""} onClick={() => setAba("financeiro")}><Icon name="trophy" size={16} /> Financeiro</button>
+        <button type="button" className={aba === "financeiro" ? "on" : ""} onClick={() => setAba("financeiro")}><Icon name="gauge" size={16} /> Financeiro</button>
+        <button type="button" className={aba === "discurso" ? "on" : ""} onClick={() => setAba("discurso")}><Icon name="megaphone" size={16} /> Discurso</button>
       </div>
       {aba === "financeiro" && <Financeiro />}
-      {aba === "planejamento" && <PlanejamentoDisparos />}
       {aba === "discurso" && <Nota chave="discurso" titulo="Discurso" dica="Mensagem central, bordões e argumentos-chave do candidato." atalhos={[["Assessoria de Imprensa", "/assessoria"], ["Treinar assistente", "/meu-agente"]]} />}
     </div>
   );

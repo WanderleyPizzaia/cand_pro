@@ -1,7 +1,6 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import MapaTabs from "./MapaTabs";
 import Icon from "../../components/Icon";
 
 // Leaflet so funciona no browser -> carrega sem SSR
@@ -23,7 +22,6 @@ export default function MapaPage() {
       <p className="page-sub">
         Geomapeamento de cadastros por cidade · densidade por cor e tamanho
       </p>
-      <MapaTabs />
       <MapaCliente />
     </>
   );

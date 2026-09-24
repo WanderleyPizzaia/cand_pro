@@ -411,7 +411,7 @@ export default function CampanhasCliente({
                   <td data-label="Enviados" style={{ color: "var(--green)", fontWeight: 700 }}>{Math.max(c.enviados || 0, track[c.id]?.enviadosReal ?? 0)}</td>
                   <td data-label="Falhas" style={{ color: c.falhas ? "var(--red)" : "var(--muted)" }}>{c.falhas}</td>
                   <td data-label="Entregues" style={{ fontVariantNumeric: "tabular-nums" }}>{track[c.id]?.entregues ?? "—"}</td>
-                  <td data-label="Lidos" style={{ fontVariantNumeric: "tabular-nums", color: "var(--brand, #1f4fd6)" }}>{track[c.id]?.lidos ?? "—"}</td>
+                  <td data-label="Lidos" style={{ fontVariantNumeric: "tabular-nums", color: "var(--blue)" }}>{track[c.id]?.lidos ?? "—"}</td>
                   <td data-label="Responderam" style={{ fontVariantNumeric: "tabular-nums", fontWeight: 600 }}>{track[c.id]?.responderam ?? "—"}</td>
                 </tr>
               ))}

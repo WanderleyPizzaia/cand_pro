@@ -1,7 +1,6 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import MapaTabs from "../MapaTabs";
 import Icon from "../../../components/Icon";
 
 const MapaLiderancasCliente = dynamic(() => import("./MapaLiderancasCliente"), {
@@ -22,7 +21,6 @@ export default function MapaLiderancasPage() {
       <p className="page-sub">
         Onde estão as lideranças · ranking de captação por líder
       </p>
-      <MapaTabs />
       <MapaLiderancasCliente />
     </>
   );

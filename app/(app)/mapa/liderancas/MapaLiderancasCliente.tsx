@@ -36,12 +36,14 @@ const ROTULO: Record<string, string> = {
   LIDER: "Líder",
 };
 
+// Mesma lógica do Mapa de votos, em violeta para distinguir lideranças de
+// contatos: quanto mais lideranças, mais clara e intensa a bolha.
 function cor(total: number, max: number): string {
   const r = max > 0 ? total / max : 0;
-  if (r > 0.66) return "#7c3aed"; // roxo - alta
-  if (r > 0.33) return "#a855f7";
-  if (r > 0.1) return "#c084fc";
-  return "#34d399";
+  if (r > 0.66) return "#d6c9fb";
+  if (r > 0.33) return "#b4a0f8";
+  if (r > 0.1) return "#8f7ad6";
+  return "#6b5aa6";
 }
 
 export default function MapaLiderancasCliente() {
@@ -141,7 +143,7 @@ export default function MapaLiderancasCliente() {
           {/* Basemap claro SEM chave (CartoDB passou a exigir API key). */}
           <TileLayer
             attribution="Tiles &copy; Esri &mdash; &copy; OpenStreetMap"
-            url="https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}"
+            url="https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}"
           />
           {pontos.map((p) => (
             <CircleMarker
@@ -151,7 +153,7 @@ export default function MapaLiderancasCliente() {
               pathOptions={{
                 color: cor(p.total, max),
                 fillColor: cor(p.total, max),
-                fillOpacity: 0.55,
+                fillOpacity: 0.45,
                 weight: 1.5,
               }}
             >
@@ -160,7 +162,7 @@ export default function MapaLiderancasCliente() {
                 <br />
                 {p.total} liderança(s)
                 <br />
-                <span style={{ color: "#888" }}>{p.regiao || "-"}</span>
+                <span className="tt-sub">{p.regiao || "-"}</span>
               </Tooltip>
             </CircleMarker>
           ))}

@@ -2,55 +2,51 @@
 
 import { useEffect, useRef, useState } from "react";
 
-// Contador animado: na montagem anima do 0 até o valor (cada troca de tela
-// remonta via PageTransition, então re-anima). Em atualizações ao vivo, anima do
-// valor anterior até o novo. Usado nos indicadores em todas as telas.
+// Número que anima só quando o valor MUDA (atualização ao vivo). Na abertura
+// da tela ele já aparece pronto: contar do zero a cada visita era espera.
+// Respeita "reduzir movimento".
 export default function CountUp({
   value,
-  duration = 900,
-  delay = 0,
+  duration = 700,
   format,
 }: {
   value: number;
   duration?: number;
-  // Atraso antes de começar — usado para o efeito cascata (stagger) em fileira.
+  // Mantido por compatibilidade com chamadas antigas (efeito cascata).
   delay?: number;
   format?: (n: number) => string;
 }) {
-  const [display, setDisplay] = useState(0);
-  const fromRef = useRef(0);
-  const rafRef = useRef<number | null>(null);
-  const timRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [display, setDisplay] = useState(value);
+  const shown = useRef(value);
+  const raf = useRef<number | null>(null);
 
   useEffect(() => {
-    const from = fromRef.current;
+    const from = shown.current;
     const to = value;
     if (from === to) return;
-
+    const reduz =
+      typeof window !== "undefined" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reduz) {
+      shown.current = to;
+      setDisplay(to);
+      return;
+    }
     let inicio: number | null = null;
     const passo = (ts: number) => {
       if (inicio === null) inicio = ts;
       const t = Math.min(1, (ts - inicio) / duration);
-      // easeOutCubic
       const e = 1 - Math.pow(1 - t, 3);
-      setDisplay(Math.round(from + (to - from) * e));
-      if (t < 1) {
-        rafRef.current = requestAnimationFrame(passo);
-      } else {
-        fromRef.current = to;
-      }
+      const v = Math.round(from + (to - from) * e);
+      shown.current = v;
+      setDisplay(v);
+      if (t < 1) raf.current = requestAnimationFrame(passo);
     };
-    const arrancar = () => {
-      rafRef.current = requestAnimationFrame(passo);
-    };
-    if (delay > 0) timRef.current = setTimeout(arrancar, delay);
-    else arrancar();
+    raf.current = requestAnimationFrame(passo);
     return () => {
-      if (rafRef.current) cancelAnimationFrame(rafRef.current);
-      if (timRef.current) clearTimeout(timRef.current);
-      fromRef.current = to;
+      if (raf.current) cancelAnimationFrame(raf.current);
     };
-  }, [value, duration, delay]);
+  }, [value, duration]);
 
   return <>{format ? format(display) : display.toLocaleString("pt-BR")}</>;
 }

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import CountUp from "../../components/CountUp";
+import Icon from "../../components/Icon";
 
 type Agente = {
   id: number;
@@ -24,6 +25,7 @@ type Agente = {
   quotaEfetiva?: number;
   disparosHoje?: number;
   config?: {
+    base_cidade?: string;
     limites?: {
       respostas_dia?: number;
       historico?: number;
@@ -88,6 +90,8 @@ export default function AgenteCard({
   const [temMetaToken, setTemMetaToken] = useState(!!agente.tem_meta_token);
   // Cota diária de disparo (vazio = padrão do provedor).
   const [quota, setQuota] = useState(agente.quota_diaria != null ? String(agente.quota_diaria) : "");
+  // Cidade base do candidato (marcador "base" no Mapa de votos).
+  const [baseCidade, setBaseCidade] = useState(agente.config?.base_cidade || "");
   // Limites da conversa com a IA (teto de respostas, contexto e assunto).
   const lim0 = agente.config?.limites || {};
   const [limRespostas, setLimRespostas] = useState(
@@ -220,6 +224,7 @@ export default function AgenteCard({
     if (iaKey.trim()) body.ia_key = iaKey.trim();
     if (metaToken.trim()) body.meta_token = metaToken.trim();
     body.quota_diaria = quota.trim() ? Number(quota) : 0; // 0 => volta ao padrão do provedor
+    body.base_cidade = baseCidade.trim();
     body.limites = {
       respostas_dia: limRespostas.trim() ? Number(limRespostas) : 0, // 0 = sem teto
       historico: limHistorico.trim() ? Number(limHistorico) : 8,
@@ -246,7 +251,9 @@ export default function AgenteCard({
       router.refresh();
       setTimeout(() => setMsg(""), 1500);
     } else {
-      setMsg("Erro ao salvar");
+      // Mostra o motivo que a API devolve (ex.: cidade base inexistente).
+      const d = await r.json().catch(() => ({}));
+      setMsg(d.erro || "Erro ao salvar");
     }
   }
 
@@ -492,7 +499,7 @@ export default function AgenteCard({
             disabled={religando}
             title="A instância não está apontando para a plataforma: as mensagens só chegam na varredura periódica. Clique para reativar."
           >
-            {religando ? "Reativando…" : "⚠ Tempo real off · reativar"}
+            {religando ? "Reativando…" : <><Icon name="alert" size={12} /> Tempo real parado · reativar</>}
           </button>
         )}
         {!temIa && (
@@ -504,11 +511,11 @@ export default function AgenteCard({
                 : "Este número NÃO responde: não tem chave de IA própria e não existe chave global. Cadastre em Ajustes."
             }
           >
-            {temChaveGlobal ? "⚠ Sem chave de IA" : "⚠ Não responde: sem chave de IA"}
+            <Icon name="alert" size={12} /> {temChaveGlobal ? "Sem chave de IA própria" : "Não responde: sem chave de IA"}
           </span>
         )}
         <button className="btn-link" onClick={() => setAjustes((v) => !v)}>
-          {ajustes ? "Fechar ajustes ▲" : "Ajustes ▼"}
+          {ajustes ? "Fechar ajustes" : "Ajustes"} <Icon name={ajustes ? "chevron-down" : "chevron-right"} size={14} />
         </button>
         {!ehMeta && agente.instancia && (
           <button
@@ -585,7 +592,7 @@ export default function AgenteCard({
                       color: temMetaToken ? "var(--green)" : "var(--yellow)",
                     }}
                   >
-                    {temMetaToken ? "✓ configurado" : "○ não configurado"}
+                    {temMetaToken ? "configurado" : "não configurado"}
                   </span>
                 </label>
                 <input
@@ -652,10 +659,10 @@ export default function AgenteCard({
                 }}
               >
                 {temIa
-                  ? "✓ configurada"
+                  ? "configurada"
                   : temChaveGlobal
-                  ? "○ usando a global"
-                  : "✗ sem chave: este número não responde"}
+                  ? "usando a global"
+                  : "sem chave: este número não responde"}
               </span>
             </label>
             <input
@@ -684,9 +691,21 @@ export default function AgenteCard({
               value={quota}
               onChange={(e) => setQuota(e.target.value)}
             />
-            <small style={{ color: "var(--muted)", fontSize: 12, marginTop: 4 }}>
+            <small className="hint">
               Máximo de disparos por dia deste número. Meta = tier oficial; Evolution é
               não-oficial (maior risco de bloqueio), use com cautela.
+            </small>
+          </div>
+          <div className="field">
+            <label htmlFor={`base-${agente.id}`}>Cidade base do candidato</label>
+            <input
+              id={`base-${agente.id}`}
+              placeholder="ex: Suzano"
+              value={baseCidade}
+              onChange={(e) => setBaseCidade(e.target.value)}
+            />
+            <small className="hint">
+              Aparece destacada no Mapa de votos para quem vê este candidato. Deixe vazio para não marcar.
             </small>
           </div>
           {/* Limites da conversa: seguram o custo por token e o assunto. */}

@@ -19,18 +19,20 @@ export default function BuscaPessoas() {
       if (q.trim()) sp.set("q", q.trim());
       else sp.delete("q");
       sp.delete("page"); // nova busca volta pra página 1
+      sp.delete("abrir");
       router.replace("/pessoas" + (sp.toString() ? "?" + sp.toString() : ""));
     }, 350);
     return () => clearTimeout(t);
   }, [q]);
 
   return (
-    <div className="busca-pessoas">
+    <div className="busca busca-pessoas">
       <Icon name="search" size={16} />
       <input
         value={q}
         onChange={(e) => setQ(e.target.value)}
-        placeholder="Buscar por nome, cargo, cidade ou número…"
+        id="busca-contatos"
+        placeholder="Buscar por nome, cargo, cidade ou número"
         aria-label="Buscar contato"
       />
       {q && (

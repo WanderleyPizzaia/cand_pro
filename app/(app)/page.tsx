@@ -6,7 +6,6 @@ import { coletarDashboard, dashboardVazio } from "@/lib/dashboard";
 import CopyLink from "../components/CopyLink";
 import DashboardLive from "./DashboardLive";
 import Icon from "../components/Icon";
-import AvatarUsuario from "../components/AvatarUsuario";
 
 export const dynamic = "force-dynamic";
 
@@ -16,8 +15,8 @@ export default async function Dashboard() {
   if (sessao.perfil === "ATENDENTE") redirect("/atendimento");
   const ehLider = sessao.perfil === "LIDER";
 
-  const eu = await queryOne<Pick<Usuario, "email" | "foto">>(
-    "SELECT email, foto FROM usuarios WHERE id = $1",
+  const eu = await queryOne<Pick<Usuario, "email">>(
+    "SELECT email FROM usuarios WHERE id = $1",
     [sessao.uid]
   );
   const meuSlug = eu?.email ?? "";
@@ -32,26 +31,44 @@ export default async function Dashboard() {
     );
   });
 
+  const primeiroNome = (sessao.nome || "").trim().split(/\s+/)[0];
+  const hoje = new Date().toLocaleDateString("pt-BR", {
+    timeZone: "America/Sao_Paulo",
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  });
+
   return (
     <>
-      <div className="dash-saudacao">
-        <AvatarUsuario foto={eu?.foto ?? null} nome={sessao.nome} className="dash-avatar" />
-        <div>
-          <h1 className="page-title" style={{ marginBottom: 2 }}>
-            <Icon name="dashboard" /> Visão Geral
+      <div className="page-head">
+        <div className="page-head-txt">
+          <h1 className="page-title">
+            <Icon name="dashboard" /> Início
           </h1>
-          <p className="page-sub" style={{ margin: 0 }}>
-            Olá, {sessao.nome} · {ehLider ? "seus indicadores" : "visão geral"} ·
-            São Paulo
+          <p className="page-sub">
+            Olá, {primeiroNome}. Hoje é {hoje}
+            {inicial.escopo === "candidato" && inicial.candidatoNome ? ` · números de ${inicial.candidatoNome}` : ""}
+            {ehLider ? " · seus cadastros" : ""}.
           </p>
+        </div>
+        <div className="page-head-acoes">
+          <Link href="/mapa" className="btn btn-ghost so-desktop">
+            <Icon name="map" size={16} /> Mapa de votos
+          </Link>
+          <Link href="/cadastro" className="btn btn-primary">
+            <Icon name="plus" size={16} /> Cadastrar contato
+          </Link>
         </div>
       </div>
 
       {ehLider && (
         <div className="link-card">
-          <h3><Icon name="link" size={16} />Seu link de captação</h3>
+          <h3>
+            <Icon name="link" size={16} /> Seu link de captação
+          </h3>
           <p>
-            Compartilhe no WhatsApp, bio do Instagram ou onde quiser. Quem se
+            Compartilhe no WhatsApp, na bio do Instagram ou onde quiser. Quem se
             cadastrar entra automaticamente vinculado a você.
           </p>
           <CopyLink path={`/form/${meuSlug}`} />
@@ -59,15 +76,6 @@ export default async function Dashboard() {
       )}
 
       <DashboardLive inicial={inicial} perfil={sessao.perfil} />
-
-      <div style={{ display: "flex", gap: 12, marginTop: 26 }}>
-        <Link href="/cadastro" className="btn btn-primary" style={{ flex: "none" }}>
-          <Icon name="plus" size={16} /> Novo cadastro
-        </Link>
-        <Link href="/mapa" className="btn btn-ghost">
-          <Icon name="map" size={16} /> Abrir Mapa de Votos
-        </Link>
-      </div>
     </>
   );
 }

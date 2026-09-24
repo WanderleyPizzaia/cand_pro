@@ -3,6 +3,7 @@ import { query, queryOne, execute, Agente, quotaEfetiva, LIMITES_IA_PADRAO } fro
 import { getSessao } from "@/lib/auth";
 import { deletarInstancia, definirWebhook } from "@/lib/evolution";
 import { urlWebhookEvolution } from "@/lib/config";
+import { buscarCidade } from "@/lib/cidades";
 
 export const dynamic = "force-dynamic";
 
@@ -181,6 +182,10 @@ export async function POST(req: NextRequest) {
     setCampo("usuario_id", donoId);
   }
 
+  // Tudo que vai para o config JSONB entra num único patch (duas atribuições
+  // à mesma coluna no mesmo UPDATE dariam erro no Postgres).
+  const cfgPatch: Record<string, unknown> = {};
+
   // Limites da conversa com a IA (teto de respostas, contexto e assunto).
   // Grava dentro do config JSONB, substituindo o bloco inteiro.
   if (b.limites && typeof b.limites === "object") {
@@ -197,8 +202,23 @@ export async function POST(req: NextRequest) {
       fora_do_escopo: String(l.fora_do_escopo ?? "").trim().slice(0, 300),
       pausa_humana_horas: inteiro(l.pausa_humana_horas, LIMITES_IA_PADRAO.pausaHumanaHoras, 720),
     };
+    cfgPatch.limites = limites;
+  }
+
+  // Cidade base do candidato (marcador "base" no Mapa de votos). Vazio remove.
+  if (typeof b.base_cidade === "string") {
+    const nome = b.base_cidade.trim();
+    const c = nome ? buscarCidade(nome) : null;
+    if (nome && !c)
+      return NextResponse.json(
+        { erro: `Cidade base "${nome}" não encontrada entre as cidades de SP.` },
+        { status: 400 }
+      );
+    cfgPatch.base_cidade = c ? c.nome : "";
+  }
+  if (Object.keys(cfgPatch).length) {
     sets.push(`config = COALESCE(config,'{}'::jsonb) || $${i++}::jsonb`);
-    vals.push(JSON.stringify({ limites }));
+    vals.push(JSON.stringify(cfgPatch));
   }
 
   // Segredos (write-only): só atualizam quando vêm no corpo.

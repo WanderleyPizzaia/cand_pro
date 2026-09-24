@@ -15,9 +15,9 @@ import {
 } from "@/lib/assessoria";
 
 const corRisco: Record<Risco, string> = {
-  alto: "#c0392b",
-  medio: "#c77d0a",
-  baixo: "#0b7a4b",
+  alto: "#ef6b63",
+  medio: "#f0b43c",
+  baixo: "#3fc98a",
 };
 
 export default function AssessoriaCliente({ gabinete }: { gabinete: string }) {
@@ -167,7 +167,7 @@ export default function AssessoriaCliente({ gabinete }: { gabinete: string }) {
                 <span>Nota de contenção (holding statement)</span>
                 <span style={{ display: "flex", gap: 8 }}>
                   <button type="button" className="mini ia-btn" disabled={iaLoading} onClick={redigirIA}>
-                    {iaLoading ? "Gerando…" : "✨ Redigir com IA"}
+                    {iaLoading ? "Gerando…" : <><Icon name="bot" size={13} /> Redigir com IA</>}
                   </button>
                   <button type="button" className="mini" onClick={() => { const n = modeloNota(gabinete, crise.severidade); setCrise({ ...crise, nota: n }); salvar("atualizar", { nota: n }); }}>Modelo</button>
                   <button type="button" className="mini" onClick={() => copiar(crise.nota, "nota")}>{copiado === "nota" ? "Copiado!" : "Copiar"}</button>
@@ -211,7 +211,7 @@ export default function AssessoriaCliente({ gabinete }: { gabinete: string }) {
           <div className="mr-filtros">
             <button className={filtro === "" ? "on" : ""} onClick={() => setFiltro("")}>Todas</button>
             {(["alto", "medio", "baixo"] as Risco[]).map((r) => (
-              <button key={r} className={filtro === r ? "on" : ""} onClick={() => setFiltro(r)} style={filtro === r ? { background: corRisco[r], borderColor: corRisco[r], color: "#fff" } : {}}>
+              <button key={r} className={filtro === r ? "on" : ""} onClick={() => setFiltro(r)} style={filtro === r ? { background: "transparent", borderColor: corRisco[r], color: corRisco[r] } : {}}>
                 Risco {RISCO_ROTULO[r].toLowerCase()}
               </button>
             ))}

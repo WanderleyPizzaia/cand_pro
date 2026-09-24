@@ -1,0 +1,135 @@
+/* ============================================================
+   CAND PRO — tokens de design.
+   Fonte única de cor, tipo, espaço, raio e sombra. Nenhuma outra folha
+   escreve cor à mão: tudo passa por aqui. Todos os pares de texto/fundo
+   abaixo têm contraste de pelo menos 4,5:1 (WCAG AA).
+   ============================================================ */
+:root {
+  color-scheme: dark;
+
+  /* ----- Superfícies (grafite com leve viés quente) ----- */
+  --bg: #0c0e12;          /* fundo do app */
+  --bg-2: #101318;        /* faixas, cabeçalho de tabela, fundo de conversa */
+  --panel: #14171d;       /* cartões e painéis */
+  --panel-2: #1b1f27;     /* campos, itens dentro de painel */
+  --panel-3: #232833;     /* hover e realce */
+  --border: #272c36;
+  --border-2: #353b47;    /* borda de campo e hover */
+  --border-3: #414856;    /* borda em hover */
+  --scroll: #2d333e;      /* barra de rolagem */
+
+  /* ----- Texto ----- */
+  --text: #eceef2;
+  --muted: #979eac;       /* 6,6:1 sobre --panel */
+  --faint: #6f7686;       /* só para rótulos de grupo e marcas d'água */
+
+  /* ----- Marca: dourado ----- */
+  --accent: #dcb15a;      /* 8,9:1 sobre --panel */
+  --accent-2: #c49a45;    /* hover do botão principal */
+  --accent-soft: rgba(220, 177, 90, 0.12);
+  --accent-line: rgba(220, 177, 90, 0.38);
+  --ink: #1a1405;         /* texto sobre o dourado: 9,1:1 */
+  --accent-hi: #f2cf7e;   /* dourado claro: brilho do botão de login, base no mapa */
+  --accent-lo: #c89d44;   /* dourado fundo do gradiente do botão de login */
+  --ouro-fundo: #1c1810;  /* superfície com tom dourado (destaques, faixa de seleção) */
+  --ouro-fundo-2: #2a2213;
+  --ouro-fundo-3: #3a2e15;
+
+  /* ----- Semânticas (estado, nunca decoração) ----- */
+  --green: #3fc98a;
+  --green-soft: rgba(63, 201, 138, 0.12);
+  --green-line: rgba(63, 201, 138, 0.35);
+  --yellow: #f0b43c;
+  --yellow-soft: rgba(240, 180, 60, 0.12);
+  --yellow-line: rgba(240, 180, 60, 0.38);
+  --red: #ef6b63;
+  --red-soft: rgba(239, 107, 99, 0.12);
+  --red-line: rgba(239, 107, 99, 0.38);
+  --blue: #78a2f2;
+  --blue-soft: rgba(120, 162, 242, 0.12);
+  --violet: #b4a0f8;
+  --violet-soft: rgba(180, 160, 248, 0.14);
+  --whatsapp: #25d366;
+  --white: #fff;
+  /* Texto sobre cor sólida semântica (contraste > 7:1) */
+  --on-green: #06140d;
+  --on-red: #1d0605;
+  --on-yellow: #1c1300;
+
+  /* WhatsApp: bolha enviada e fundo da conversa */
+  --wa-out: #13463a;
+  --wa-out-line: #1c6b54;
+  --wa-out-text: #e8f6f0;
+  --wa-bg: #0b0d11;
+  --wa-lida: #53bdeb;     /* azul "lida" do próprio WhatsApp */
+
+  /* Overlays */
+  --scrim: rgba(5, 6, 9, 0.66);
+
+  /* ----- Barra lateral ----- */
+  --side-bg: #0a0c10;
+  --side-text: #b3b9c5;
+  --side-hover: #161a21;
+  --side-border: #1f232b;
+
+  /* ----- Aliases antigos (ainda usados em estilos inline dos componentes) ----- */
+  --brand: var(--accent);
+  --accent2: var(--accent-2);
+  --card: var(--panel);
+  --paper: var(--bg-2);
+  --linha: var(--border);
+  --texto: var(--text);
+
+  /* ----- Tipografia ----- */
+  --font-sans: var(--font-plex), "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
+  --font-display: var(--font-montserrat), var(--font-sans);
+  --font-mono: var(--font-plex-mono), ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --mono: var(--font-mono);
+  --fonte-display: var(--font-display);
+  /* Escala: 7 tamanhos. Nada fora dela. */
+  --fs-1: 12px;   /* rótulos, selos, legendas */
+  --fs-2: 13px;   /* apoio, metadados */
+  --fs-3: 14px;   /* interface, tabelas, listas */
+  --fs-4: 16px;   /* texto corrido, campos no celular */
+  --fs-5: 20px;   /* títulos de seção */
+  --fs-6: 28px;   /* título de página, números de indicador */
+  --fs-7: 40px;   /* número de destaque */
+
+  /* ----- Espaço (base 4) ----- */
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 24px;
+  --s-6: 32px;
+  --s-7: 48px;
+
+  /* ----- Raio ----- */
+  --r-sm: 6px;
+  --r-md: 10px;
+  --r-lg: 16px;
+  --r-pill: 999px;
+
+  /* ----- Elevação (2 níveis: flutuante e sobreposto) ----- */
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.5);
+  --focus: 0 0 0 3px rgba(220, 177, 90, 0.3);
+
+  /* ----- Medidas da casca ----- */
+  --side-w: 248px;
+  --side-w-min: 68px;
+  --topbar-h: 56px;
+  --tabbar-h: 64px;
+  --gutter: 32px;
+
+  /* ----- Movimento ----- */
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --t-fast: 0.12s;
+  --t-med: 0.2s;
+}
+
+@media (max-width: 1024px) {
+  :root {
+    --gutter: 16px;
+  }
+}

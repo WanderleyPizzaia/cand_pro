@@ -113,10 +113,10 @@ export default async function CandProPage() {
 
       {/* KPIs */}
       <section id="numeros" className="cp-wrap cp-kpis">
-        <div className="cp-kpi cp-in" style={{ animationDelay: "0ms" }}><span className="cp-kpi-v" data-count={eleitores}>0</span><span className="cp-kpi-l">Eleitores na base</span></div>
-        <div className="cp-kpi cp-in" style={{ animationDelay: "80ms" }}><span className="cp-kpi-v" data-count={mensagens}>0</span><span className="cp-kpi-l">Mensagens trocadas</span></div>
-        <div className="cp-kpi cp-in" style={{ animationDelay: "160ms" }}><span className="cp-kpi-v" data-count={cidadesN}>0</span><span className="cp-kpi-l">Cidades alcançadas</span></div>
-        <div className="cp-kpi cp-in" style={{ animationDelay: "240ms" }}><span className="cp-kpi-v" data-count={candidatos.length || 5}>0</span><span className="cp-kpi-l">Candidatos ativos</span></div>
+        <div className="cp-kpi cp-in" style={{ animationDelay: "0ms" }}><span className="cp-kpi-v" suppressHydrationWarning data-count={eleitores}>0</span><span className="cp-kpi-l">Eleitores na base</span></div>
+        <div className="cp-kpi cp-in" style={{ animationDelay: "80ms" }}><span className="cp-kpi-v" suppressHydrationWarning data-count={mensagens}>0</span><span className="cp-kpi-l">Mensagens trocadas</span></div>
+        <div className="cp-kpi cp-in" style={{ animationDelay: "160ms" }}><span className="cp-kpi-v" suppressHydrationWarning data-count={cidadesN}>0</span><span className="cp-kpi-l">Cidades alcançadas</span></div>
+        <div className="cp-kpi cp-in" style={{ animationDelay: "240ms" }}><span className="cp-kpi-v" suppressHydrationWarning data-count={candidatos.length || 5}>0</span><span className="cp-kpi-l">Candidatos ativos</span></div>
       </section>
 
       {/* Painel Power BI */}
@@ -147,7 +147,7 @@ export default async function CandProPage() {
                   strokeDasharray={`${f.dash} ${C - f.dash}`} strokeDashoffset={f.offset}
                   transform="rotate(-90 70 70)" strokeLinecap="butt" />
               ))}
-              <text x="70" y="66" textAnchor="middle" className="cp-donut-n" data-count={totalCand}>0</text>
+              <text x="70" y="66" textAnchor="middle" className="cp-donut-n" suppressHydrationWarning data-count={totalCand}>0</text>
               <text x="70" y="82" textAnchor="middle" className="cp-donut-s">eleitores</text>
             </svg>
             <ul className="cp-legend">
@@ -165,7 +165,7 @@ export default async function CandProPage() {
               <div className="cp-bar-row" key={i}>
                 <span className="cp-bar-lbl">{c.cand}</span>
                 <span className="cp-bar-track"><span className="cp-bar-fill cp-grow" style={{ width: `${(Number(c.c) / maxCandBar) * 100}%`, background: CORES[i % CORES.length] }} /></span>
-                <span className="cp-bar-v" data-count={c.c}>0</span>
+                <span className="cp-bar-v" suppressHydrationWarning data-count={c.c}>0</span>
               </div>
             ))}
           </div>
@@ -178,7 +178,7 @@ export default async function CandProPage() {
               <div className="cp-bar-row" key={i}>
                 <span className="cp-bar-lbl cp-bar-lbl-w">{c.cidade}</span>
                 <span className="cp-bar-track"><span className="cp-bar-fill cp-grow" style={{ width: `${(Number(c.c) / maxCid) * 100}%` }} /></span>
-                <span className="cp-bar-v" data-count={c.c}>0</span>
+                <span className="cp-bar-v" suppressHydrationWarning data-count={c.c}>0</span>
               </div>
             ))}
           </div>

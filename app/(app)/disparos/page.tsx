@@ -51,16 +51,17 @@ export default async function DisparosPage() {
   return (
     <>
       <h1 className="page-title">
-        <Icon name="megaphone" /> Disparos
+        <Icon name="send" /> Novo disparo
       </h1>
       <p className="page-sub">
-        Planeje, agende e monitore os disparos por candidato — quantidade, grupo de
-        contatos e quantos responderam, com rastreabilidade.
+        Escolha o número, o grupo e a mensagem. Ao lado, o acompanhamento de cada
+        envio: entregues, lidos e quem respondeu.
       </p>
 
       {!(st.evolutionUrl && st.evolutionApiKey) && (
-        <div className="msg err" style={{ marginBottom: 16 }}>
-          Evolution não configurada — configure em <b>Configurações</b> antes de disparar.
+        <div className="msg warn">
+          O WhatsApp (Evolution) ainda não está configurado. Um administrador precisa
+          preencher a URL e a chave em Configurações antes do primeiro disparo.
         </div>
       )}
 

@@ -1,9 +1,7 @@
 import { redirect } from "next/navigation";
 import { getSessao } from "@/lib/auth";
 import { query } from "@/lib/db";
-import WhatsTabs from "../agentes/WhatsTabs";
 import InboxCliente from "./InboxCliente";
-import CandidatoTabs from "./CandidatoTabs";
 import PuxarNovas from "./PuxarNovas";
 import Icon from "../../components/Icon";
 import { agentesDaSessao } from "@/lib/escopo";
@@ -42,21 +40,17 @@ export default async function InboxPage({
   // disponíveis e o padrão é "Todos" (os dele). A fronteira real é no /api/inbox.
   const agenteIdFixo: number | null = null;
 
-  const ehGestor = ["ADMIN", "COORDENACAO"].includes(sessao.perfil);
-
   return (
     // Tela fixa: quem rola é a lista de conversas e as mensagens, não a página.
     <div className="inbox-tela">
       <h1 className="page-title">
-        <Icon name="chat" /> Conversas · WhatsApp
+        <Icon name="whatsapp" /> Conversas por número
       </h1>
       <p className="page-sub">
         {sessao.perfil === "CANDIDATO"
           ? "Mensagens recebidas pelo seu agente de WhatsApp"
-          : "Caixa de entrada dos agentes · veja e responda manualmente"}
+          : "Caixa de entrada de cada número. Para a fila distribuída entre atendentes, use a aba Atendimento."}
       </p>
-      {ehGestor && <WhatsTabs />}
-      {sessao.perfil === "CANDIDATO" && <CandidatoTabs />}
       {/* Busca ativa: importa da Evolution mesmo quando o webhook não avisa. */}
       <PuxarNovas segundos={15} />
       <InboxCliente

@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 import { getSessao } from "@/lib/auth";
 import Icon from "../../components/Icon";
-import CandidatoTabs from "../inbox/CandidatoTabs";
 import MeuAgenteCliente from "./MeuAgenteCliente";
 
 export const dynamic = "force-dynamic";
@@ -20,7 +19,6 @@ export default function MeuAgentePage() {
       <p className="page-sub">
         Seu assistente de IA no WhatsApp · status, ligar/desligar e ajustar a persona
       </p>
-      {sessao.perfil === "CANDIDATO" && <CandidatoTabs />}
       <MeuAgenteCliente />
     </>
   );

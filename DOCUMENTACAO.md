@@ -59,12 +59,11 @@ marketing, coordenação, candidatos e líderes). As principais capacidades:
 cand-pro/
 ├── app/
 │   ├── (app)/                  # Área logada (protegida por sessão)
-│   │   ├── layout.tsx          # Sidebar + guarda de sessão
+│   │   ├── layout.tsx          # Casca (AppShell) + guarda de sessão
 │   │   ├── page.tsx            # Dashboard (1)
 │   │   ├── cadastro/           # Cadastrar pessoa (2)
 │   │   ├── pessoas/            # Lista de cadastros (2)
 │   │   ├── mapa/               # Mapa de Votos (3)
-│   │   │   ├── MapaTabs.tsx    # Abas entre os dois mapas
 │   │   │   └── liderancas/     # Mapa de Lideranças (3)
 │   │   ├── agentes/            # WhatsApp · Agentes de IA (4)
 │   │   ├── agenda/             # Agenda · Google Calendar (5)
@@ -75,8 +74,10 @@ cand-pro/
 │   ├── login/                  # Tela de login (pública)
 │   ├── form/[slug]/            # Formulário público de captação
 │   ├── api/                    # API Routes (ver seção 10)
-│   ├── components/             # Sidebar, CopyLink
-│   └── globals.css             # Estilos globais (tema claro)
+│   ├── components/             # Casca: AppShell, Sidebar, Topbar, SubNav,
+│   │                           #   MobileNav, CommandPalette, navItens.ts…
+│   └── styles/                 # Visual (ver seção 15): tokens, base,
+│                               #   components, shell, telas, modulos, publico
 ├── lib/                        # Camada de domínio (ver seção abaixo)
 ├── db/schema.sql               # Schema do Postgres (versionado)
 ├── scripts/                    # Utilitários de banco (migrate, sql, dbcheck)
@@ -215,22 +216,33 @@ O sistema não cria dados de exemplo nem tem senha padrão:
 
 ---
 
-## 6. Navegação (Sidebar)
+## 6. Navegação
 
-Ordem espelha o blueprint do projeto:
+Fonte única: `app/components/navItens.ts`. Início + 4 áreas; cada item pode ter
+**abas** (telas irmãs). As permissões de cada aba espelham o `redirect` da
+`page.tsx`: ninguém vê link que dá acesso negado.
 
-| Nº | Item | Rota | Perfis |
-|---|---|---|---|
-| 0 | LOGIN E SENHA | `/usuarios` | ADMIN |
-| 1 | DASHBOARD | `/` | Todos |
-| 2 | CADASTROS | `/pessoas` | ADMIN, MARKETING, COORDENACAO, LIDER |
-| 3 | MAPAS | `/mapa` | Todos |
-| 4 | WHATSAPP | `/agentes` | ADMIN, COORDENACAO |
-| 5 | AGENDA | `/agenda` | Todos |
-| 6 | TAREFAS | `/tarefas` | ADMIN, MARKETING, COORDENACAO |
+| Área | Item | Abas (rotas) |
+|---|---|---|
+| Início | Início | `/` |
+| Base | Contatos | `/pessoas` (e `/cadastro`) |
+| Base | Mapas | `/mapa` · `/mapa/liderancas` |
+| Base | Comunidades · Matriz política · Funil | `/comunidades` · `/matriz` · `/funil` |
+| WhatsApp | Conversas | `/atendimento` (fila da equipe) · `/inbox` (por número) |
+| WhatsApp | Disparos | `/disparos` · `/campanhas` · `/disparos/planejamento` |
+| WhatsApp | Agentes de IA | `/agentes` · `/meu-agente` (candidato) |
+| WhatsApp | Modelos e listas | `/templates` · `/listas` |
+| Gabinete | Pautas · Tarefas · Assessoria · Agenda | `/pautas` · `/tarefas` · `/assessoria` · `/agenda` |
+| Ajustes (rodapé) | Configurar gabinete · Tecnologia · Configurações · Minha conta | `/primeiros-passos` · `/tecnologia` · `/configuracoes` · `/conta` |
 
-Rodapé da sidebar: **Configurações** (só ADMIN), **🔑 Alterar senha** (todos),
-dados do usuário logado e **Sair**.
+- **Desktop:** menu lateral agrupado (recolhível), barra superior com a trilha
+  "Área › Item", selo de contagem até a votação e o sino. As abas da área
+  aparecem no topo do conteúdo.
+- **Celular:** barra fixa com até 5 abas (Início, Base, WhatsApp, Gabinete,
+  Mais). Cada área abre um painel com as telas dela.
+- **Busca global:** `Ctrl K` (ou `/`) acha telas, ações e contatos.
+- **Selos do menu:** fila do Atendimento, pautas novas e tarefas vencendo
+  (`/api/contadores`, a cada 30 s).
 
 ---
 
@@ -241,15 +253,15 @@ Layout split profissional: painel de marca à esquerda (logo, tagline, destaques
 e formulário à direita (usuário/e-mail + senha com mostrar/ocultar). Responsivo.
 Envia para `POST /api/auth/login`; em sucesso redireciona ao Dashboard.
 
-### 7.2 Dashboard (`/`) — todos
-Indicadores **em tempo real** (componente cliente faz *polling* a cada 15s em
-`/api/dashboard`):
-1. **Números de WhatsApp** — total de agentes e quantos conectados.
-2. **Mensagens** — total recebidas/enviadas.
-3. **Tempo médio de resposta** — tempo entre uma mensagem recebida e a 1ª
-   resposta (últimos 30 dias).
-4. **Indicador de liderança (ao vivo)** — ranking de captação por usuário.
-5. **Contatos que caíram** — novos cadastros com filtro **Hoje / 7 / 15 / 30 dias**.
+### 7.2 Início (`/`) — todos (atendente vai direto ao Atendimento)
+Atualiza sozinho a cada 15 s (`/api/dashboard`):
+1. **Precisa de você agora** (`lib/pendencias.ts`): conversas na fila,
+   números parados, tarefas atrasadas ou vencendo hoje e pautas sem triagem.
+   Cada item leva à tela certa (ex.: "Abrir fila" abre `/atendimento?view=fila`).
+2. **Indicadores:** contatos na base (com variação de 7 dias e minigráfico),
+   números de WhatsApp respondendo, mensagens de hoje e 1ª resposta média.
+3. **Contatos acumulados** até a votação, **novos cadastros** (Hoje / 7 / 15 /
+   30 dias) com quem mais cadastra, **metas** e **visão por candidato**.
 
 O LIDER vê só os próprios números. Líder também recebe um card com seu **link de
 captação**.
@@ -259,9 +271,13 @@ Formulário que coleta nome, categoria, cidade, bairro, whatsapp, e-mail, etc.
 A cidade é casada com a base IBGE de SP → coordenadas automáticas e região
 inferida. Envia para `POST /api/pessoas` (vincula `criado_por` à sessão).
 
-### 7.4 Cadastros (`/pessoas`) — item da sidebar para ADMIN, Marketing, Coordenação e Líder
-Tabela com nome, categoria, cidade, região, whatsapp, autor e data. O LIDER vê
-apenas os próprios cadastros.
+### 7.4 Contatos (`/pessoas`) — ADMIN, Marketing, Coordenação, Candidato e Líder
+Tabela (lista compacta no celular) com busca e filtros de categoria, cidade e
+candidato na URL. Clique na linha abre o painel de detalhes (abrir conversa,
+editar, excluir com confirmação). Seleção em massa: **adicionar à lista**
+(`POST /api/listas/membros`) e **exportar CSV** dos selecionados. O menu
+"Planilha" exporta com os filtros atuais, importa CSV e busca fotos do
+WhatsApp. O LIDER vê apenas os próprios cadastros.
 
 ### 7.5 Formulário público de captação (`/form/[slug]`) — público
 `slug` = e-mail/usuário de um líder. Quem preenche **não precisa de login**; o
@@ -379,6 +395,9 @@ Todas em `force-dynamic`. Salvo indicação, exigem sessão.
 | `/api/agentes` | GET, POST | Lista/atualiza agentes (ADMIN, COORDENACAO) |
 | `/api/config` | GET, POST | Status/grava integrações (ADMIN) |
 | `/api/whatsapp/webhook` | GET, POST | Webhook da Evolution (público) |
+| `/api/contadores` | GET | Selos do menu: fila, pautas novas, tarefas vencendo |
+| `/api/busca` | GET | Busca global de contatos (`?q=`), no escopo da sessão |
+| `/api/listas/membros` | POST | Adiciona contatos selecionados a uma lista `{lista_id, pessoa_ids}` |
 
 ---
 
@@ -442,3 +461,37 @@ Postgres/Supabase.
 ---
 
 *Documento gerado em 2026-06-15.*
+
+---
+
+## 15. Design (tokens e estilos)
+
+O visual vive em `app/styles/`, importado nesta ordem em `app/layout.tsx`:
+
+| Arquivo | O que tem |
+|---|---|
+| `tokens.css` | Única fonte de cor, tipo, espaço, raio, sombra e medidas da casca |
+| `base.css` | Reset, campos de formulário, foco visível, utilitários |
+| `components.css` | Cabeçalho de página, botões, abas, chips, selos, cartões, tabelas, avisos, janelas |
+| `shell.css` | Menu lateral, barra superior, barra do celular, painéis, busca, notificações |
+| `telas.css` | Início, Contatos, Cadastro, Conversas, Mapa, Agentes, Tarefas, Disparos |
+| `modulos.css` | Funil, Comunidades, Planejamento, Assessoria, Financeiro, Matriz, Pautas, Agenda |
+| `publico.css` | Login, carregamento, formulários públicos, boas-vindas e tour |
+
+Regras:
+- **Cor só por token** (`var(--accent)`, `var(--red)`…). Todos os pares de
+  texto/fundo passam de 4,5:1. Texto sobre dourado usa `var(--ink)`.
+  Exceções de propósito: o botão do Google (cores da marca Google) e a
+  página pública de pauta, que usa a cor do candidato, não a do CAND PRO.
+- **Fontes:** IBM Plex Sans (interface), Montserrat (marca, títulos e números
+  grandes), IBM Plex Mono (telefones e números alinhados).
+- **Escala de tipo:** 12 · 13 · 14 · 16 · 20 · 28 · 40 px (`--fs-1` a `--fs-7`).
+  Só os textos dentro de gráficos SVG usam tamanho próprio (escalam com o desenho).
+- **Espaço:** 4 · 8 · 12 · 16 · 24 · 32 · 48 (`--s-1` a `--s-7`).
+  **Raio:** 6 · 10 · 16 · pílula.
+- **Quebras:** 1280 px (grades largas), 1024 px (casca de celular) e 640 px
+  (telas de celular). Nenhuma outra.
+- **Sem `!important`**, exceto o bloco de "reduzir movimento" em `base.css`.
+- **Zoom liberado** no celular (acessibilidade).
+- **Cidade base do candidato:** configurada em Agentes → Ajustes; aparece
+  destacada no Mapa de votos para quem vê aquele candidato.

@@ -15,10 +15,10 @@ export default function TecnologiaPage() {
   return (
     <>
       <h1 className="page-title">
-        <Icon name="settings" /> Tecnologia
+        <Icon name="cpu" /> Tecnologia
       </h1>
       <p className="page-sub">
-        Planejamento, discurso e o financeiro da operação: investimento, custos dos disparos e saldo, com transparência.
+        Financeiro da operação (investimento, custo dos disparos e saldo) e o discurso do candidato. O planejamento dos envios agora fica em Disparos.
       </p>
       <TecnologiaCliente />
     </>

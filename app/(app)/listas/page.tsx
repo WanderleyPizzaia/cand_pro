@@ -2,7 +2,6 @@ import { redirect } from "next/navigation";
 import { getSessao } from "@/lib/auth";
 import { query, Agente } from "@/lib/db";
 import Icon from "../../components/Icon";
-import WhatsTabs from "../agentes/WhatsTabs";
 import ListasCliente from "./ListasCliente";
 import { agentesDaSessao } from "@/lib/escopo";
 
@@ -33,7 +32,6 @@ export default async function ListasPage() {
         Importe um CSV de contatos e transforme numa lista reutilizável. A
         importação normaliza o telefone, remove duplicados e já plota no mapa.
       </p>
-      <WhatsTabs />
       <ListasCliente agentes={agentes.map((a) => ({ id: a.id, candidato: a.candidato }))} />
     </>
   );

@@ -89,8 +89,8 @@ export default function Notificacoes() {
   return (
     <>
       <div className="notif-wrap">
-        <button className="notif-bell" onClick={abrir} aria-label="Notificações">
-          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <button type="button" className="tb-btn notif-bell" onClick={abrir} aria-label="Notificações" aria-expanded={aberto}>
+          <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
             <path d="M13.7 21a2 2 0 0 1-3.4 0" />
           </svg>
@@ -101,16 +101,16 @@ export default function Notificacoes() {
           <>
             <div className="notif-backdrop" onClick={() => setAberto(false)} />
             <div className="notif-painel" role="dialog">
-              <div className="notif-cab"><b>Novidades</b><button onClick={() => setAberto(false)} aria-label="Fechar">✕</button></div>
+              <div className="notif-cab"><b>Novidades</b><button type="button" onClick={() => setAberto(false)} aria-label="Fechar"><Icon name="x" size={16} /></button></div>
               {perm !== "granted" && (
-                <button className="notif-ativar" onClick={ativarNotif}>
+                <button type="button" className="notif-ativar" onClick={ativarNotif}>
                   <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.7 21a2 2 0 0 1-3.4 0" /></svg>
                   Ativar notificações {perm === "denied" ? "(bloqueado no navegador)" : "e permitir alertas"}
                 </button>
               )}
               <div className="notif-lista">
                 {itens.length === 0 ? (
-                  <div className="notif-vazio">Sem novidades ainda. A base crescendo, elas aparecem aqui. 🚀</div>
+                  <div className="notif-vazio">Sem novidades ainda. Conforme a base cresce, os marcos aparecem aqui.</div>
                 ) : (
                   itens.map((n) => (
                     <div className={"notif-item" + (n.comemora ? " festa" : "")} key={n.id}>

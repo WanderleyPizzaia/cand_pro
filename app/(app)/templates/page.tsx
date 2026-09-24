@@ -2,8 +2,6 @@ import { redirect } from "next/navigation";
 import { getSessao } from "@/lib/auth";
 import { query, Agente } from "@/lib/db";
 import Icon from "../../components/Icon";
-import WhatsTabs from "../agentes/WhatsTabs";
-import CandidatoTabs from "../inbox/CandidatoTabs";
 import TemplatesClient from "./TemplatesClient";
 import { agentesDaSessao } from "@/lib/escopo";
 
@@ -39,7 +37,6 @@ export default async function TemplatesPage() {
       <p className="page-sub">
         Crie modelos de mensagem, envie para aprovação da Meta e defina variáveis.
       </p>
-      {ehCandidato ? <CandidatoTabs /> : <WhatsTabs />}
       <TemplatesClient
         agentes={agentes.map((a) => ({ id: a.id, nome: a.candidato, waba: a.meta_waba_id }))}
       />

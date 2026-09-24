@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import Icon from "../../components/Icon";
 
 type Conversa = {
   id: number;
@@ -66,8 +67,13 @@ function Avatar({ foto, nome }: { foto: string | null; nome: string }) {
   );
 }
 
-export default function AtendimentoCliente() {
-  const [view, setView] = useState<View>("todas");
+const VIEWS_VALIDAS: View[] = ["minhas", "fila", "todas", "resolvidas", "equipe"];
+
+export default function AtendimentoCliente({ viewInicial }: { viewInicial?: string }) {
+  // Links do Início ("Abrir fila") chegam com ?view=fila.
+  const [view, setView] = useState<View>(
+    VIEWS_VALIDAS.includes(viewInicial as View) ? (viewInicial as View) : "todas"
+  );
   const [busca, setBusca] = useState("");
   const [conversas, setConversas] = useState<Conversa[]>([]);
   const [sel, setSel] = useState<Conversa | null>(null);
@@ -490,78 +496,32 @@ export default function AtendimentoCliente() {
 
   return (
     <>
-      <style>{`
-        .at-wrap{display:flex;gap:14px}
-        .at-rail{flex:none;width:186px;display:flex;flex-direction:column;gap:6px}
-        .at-view{display:flex;align-items:center;justify-content:space-between;gap:8px;
-          padding:10px 12px;border-radius:10px;border:1px solid var(--border,#e3e6ec);
-          background:var(--card,#fff);cursor:pointer;font-size:13.5px;font-weight:600;color:inherit;text-align:left}
-        .at-view.ativo{background:var(--accent);color:var(--ink);border-color:transparent;font-weight:700}
-        .at-view .cnt{font-size:11px;font-weight:700;background:rgba(255,255,255,.10);border-radius:20px;padding:1px 8px}
-        .at-view.ativo .cnt{background:rgba(0,0,0,.18)}
-        .at-presenca{margin-top:8px;display:flex;align-items:center;gap:8px;padding:10px 12px;
-          border-radius:10px;border:1px solid var(--border,#e3e6ec);background:var(--card,#fff);
-          cursor:pointer;font-size:12.5px;font-weight:600}
-        .at-dot{width:9px;height:9px;border-radius:50%;flex:none}
-        .at-dot.on{background:var(--green)} .at-dot.off{background:var(--muted)}
-        .at-badge{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;
-          padding:2px 7px;border-radius:20px}
-        .at-badge.fila{background:rgba(245,196,81,.16);color:#f5c451}
-        .at-badge.minha{background:rgba(224,178,77,.16);color:var(--accent)}
-        .at-badge.outro{background:rgba(147,160,180,.16);color:var(--muted)}
-        .at-badge.resolv{background:rgba(52,211,153,.16);color:var(--green)}
-        .at-acoes{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
-        .at-btn{font-size:12px;font-weight:600;padding:5px 11px;border-radius:8px;
-          border:1px solid var(--border,#e3e6ec);background:var(--card,#fff);cursor:pointer;color:inherit}
-        .at-btn.prim{background:var(--accent);color:var(--ink);border-color:transparent;font-weight:700}
-        .at-btn.ok{background:#14503f;color:#eaf7f1;border-color:#1c6b54}
-        .at-btn:disabled{opacity:.5;cursor:not-allowed}
-        .at-conv-sub{display:flex;align-items:center;gap:6px;margin-top:2px}
-        .at-conv-atendente{font-size:11px;color:var(--muted,#6b7280)}
-        .at-equipe{padding:10px 12px;display:flex;flex-direction:column;gap:8px}
-        .at-eq-item{display:flex;align-items:center;gap:11px;padding:11px 13px;border:1px solid var(--border,#e3e6ec);
-          border-radius:14px;background:var(--card,#fff)}
-        .at-eq-av{position:relative;width:38px;height:38px;border-radius:50%;flex:none;display:flex;
-          align-items:center;justify-content:center;font-weight:700;font-size:14px;color:var(--ink);background:var(--accent)}
-        .at-eq-av .st-ring{position:absolute;right:-1px;bottom:-1px;width:12px;height:12px;border-radius:50%;
-          border:2px solid var(--card,#fff)}
-        .st-ring.on{background:#2c9c4b} .st-ring.busy{background:#e6a417} .st-ring.off{background:#b6bcc6}
-        .at-eq-main{flex:1;min-width:0}
-        .at-eq-nome{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-        .at-eq-sub{font-size:11.5px;color:var(--muted,#6b7280);margin-top:2px;white-space:nowrap;
-          overflow:hidden;text-overflow:ellipsis}
-        .st-txt{font-weight:700}
-        .st-txt.on{color:var(--green)} .st-txt.busy{color:#f5c451} .st-txt.off{color:var(--muted)}
-        .at-eq-nums{display:flex;gap:16px;flex:none;text-align:center}
-        .at-eq-num b{display:block;font-size:16px;font-weight:800;line-height:1;font-variant-numeric:tabular-nums}
-        .at-eq-num span{font-size:9.5px;color:var(--muted,#6b7280);font-weight:700;text-transform:uppercase;letter-spacing:.03em}
-        .at-eq-num.now b{color:var(--accent)} .at-eq-num.done b{color:var(--green)}
-        .at-eq-item.clic{cursor:pointer;transition:border-color .15s,box-shadow .15s,transform .05s}
-        .at-eq-item.clic:hover{border-color:var(--accent);box-shadow:0 2px 10px rgba(224,178,77,.12)}
-        .at-eq-item.clic:active{transform:scale(.995)}
-        .at-filtro-atendente{margin-top:8px}
-        .at-filtro-numero{margin-top:8px}
-        .inbox-nao-lida-dot{display:inline-block;width:9px;height:9px;border-radius:50%;
-          background:#2c9c4b;margin-left:6px;vertical-align:middle}
-        .inbox-conv.nao-lida .inbox-conv-nome{font-weight:800}
-        .inbox-conv.nao-lida .inbox-conv-txt{color:var(--text,#1a1a1a);font-weight:600}
-        @media (max-width:860px){.at-rail{width:100%;flex-direction:row;overflow-x:auto}
-          .at-wrap{flex-direction:column}
-          .at-btn{min-height:40px;padding-top:8px;padding-bottom:8px}
-          .at-view{min-height:40px}}
-      `}</style>
 
       <div className="at-wrap">
-        {/* RAIL de views */}
-        <div className="at-rail">
-          {VIEWS.map((v) => (
-            <button key={v.k} className={`at-view${view === v.k ? " ativo" : ""}`} onClick={() => setView(v.k)}>
-              <span>{v.label}</span>
-              {typeof v.badge === "number" && v.badge > 0 && <span className="cnt">{v.badge}</span>}
-            </button>
-          ))}
+        {/* Visões (Minhas, Fila, Todas…) em chips no topo */}
+        <div className="at-topo">
+          <div className="chips at-views" role="tablist" aria-label="Visões do atendimento">
+            {VIEWS.map((v) => (
+              <button
+                key={v.k}
+                type="button"
+                role="tab"
+                aria-selected={view === v.k}
+                className={`chip${view === v.k ? " ativo" : ""}`}
+                onClick={() => setView(v.k)}
+              >
+                {v.label}
+                {typeof v.badge === "number" && v.badge > 0 && <span className="cnt">{v.badge}</span>}
+              </button>
+            ))}
+          </div>
           {eu && eu.perfil === "ATENDENTE" && (
-            <button className="at-presenca" onClick={toggleDisponivel} title="Ligar/desligar recebimento de novas conversas">
+            <button
+              type="button"
+              className={`chip at-presenca${eu.disponivel ? " on" : ""}`}
+              onClick={toggleDisponivel}
+              title="Ligar ou desligar o recebimento de novas conversas"
+            >
               <span className={`at-dot ${eu.disponivel ? "on" : "off"}`} />
               {eu.disponivel ? "Disponível" : "Ausente"}
             </button>
@@ -569,45 +529,42 @@ export default function AtendimentoCliente() {
         </div>
 
         {/* LISTA + THREAD (reusa o visual do inbox) */}
-        <div className={`inbox${sel ? " thread-aberta" : ""}`} style={{ flex: 1 }}>
+        <div className={`inbox${sel ? " thread-aberta" : ""}`}>
           <div className="inbox-list">
             {view === "equipe" ? (
               <div className="at-equipe">
                 {/* Bot de 1ª resposta: liga/desliga + texto */}
-                <div style={{ border: "1px solid var(--border,#e3e6ec)", borderRadius: 12, background: "var(--card,#fff)", padding: 12, marginBottom: 4 }}>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+                <div className="at-bot">
+                  <div className="at-bot-topo">
                     <div>
-                      <div style={{ fontWeight: 700, fontSize: 13.5 }}>🤖 Bot de 1ª resposta</div>
-                      <div style={{ fontSize: 11.5, color: "var(--muted,#6b7280)" }}>
-                        Manda uma acolhida automática quando o contato responde; depois entrega à equipe.
-                      </div>
+                      <b><Icon name="bot" size={15} /> Bot de 1ª resposta</b>
+                      <span>Manda uma acolhida automática quando o contato responde; depois entrega à equipe.</span>
                     </div>
                     <button
                       type="button"
+                      className={`switch${botAtivo ? " on" : ""}`}
                       onClick={() => salvarBot(!botAtivo, botTexto)}
-                      style={{
-                        flex: "none", cursor: "pointer", border: "none", borderRadius: 20,
-                        padding: "6px 14px", fontWeight: 700, fontSize: 12.5, color: "#fff",
-                        background: botAtivo ? "#2c9c4b" : "#9aa1ad",
-                      }}
+                      role="switch"
+                      aria-checked={botAtivo}
+                      aria-label={botAtivo ? "Bot ligado. Desligar" : "Bot desligado. Ligar"}
                     >
-                      {botAtivo ? "Ligado" : "Desligado"}
+                      <span className="dot" />
                     </button>
                   </div>
                   <textarea
+                    id="bot-texto"
                     value={botTexto}
                     onChange={(e) => setBotTexto(e.target.value)}
                     rows={2}
                     placeholder="Mensagem automática de acolhida…"
-                    style={{ width: "100%", marginTop: 8, resize: "vertical" }}
                   />
-                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 6 }}>
+                  <div className="at-bot-rodape">
                     <button type="button" className="at-btn prim" onClick={() => salvarBot(botAtivo, botTexto)}>Salvar texto</button>
-                    {botSalvo && <span style={{ fontSize: 12, color: "var(--muted,#6b7280)" }}>{botSalvo}</span>}
+                    {botSalvo && <span className="muted">{botSalvo}</span>}
                   </div>
                 </div>
                 {atendentes.length === 0 ? (
-                  <div className="empty" style={{ padding: 24, fontSize: 13 }}>Nenhum atendente cadastrado.</div>
+                  <div className="empty empty-sm">Nenhum atendente cadastrado.</div>
                 ) : (
                   atendentes.map((a) => {
                     const estado = a.online ? "on" : "off";
@@ -649,7 +606,7 @@ export default function AtendimentoCliente() {
             ) : (
             <>
             <div className="inbox-filtros">
-              <input className="inbox-busca" placeholder="Buscar conversa…" value={busca} onChange={(e) => setBusca(e.target.value)} />
+              <input id="at-busca" className="inbox-busca" placeholder="Buscar conversa…" value={busca} onChange={(e) => setBusca(e.target.value)} />
               {agentes.length > 1 && (
                 <select
                   className="inbox-busca at-filtro-numero"
@@ -681,7 +638,7 @@ export default function AtendimentoCliente() {
               )}
             </div>
             {conversas.length === 0 ? (
-              <div className="empty" style={{ padding: 24, fontSize: 13 }}>Nenhuma conversa nesta lista.</div>
+              <div className="empty empty-sm">Nenhuma conversa nesta lista.</div>
             ) : (
               conversas.map((c) => {
                 const aberta = sel?.contato === c.contato && sel?.agente_id === c.agente_id;
@@ -726,12 +683,12 @@ export default function AtendimentoCliente() {
 
           <div className="inbox-thread">
             {!sel ? (
-              <div className="empty" style={{ margin: "auto" }}>Selecione uma conversa.</div>
+              <div className="empty inbox-vazia"><Icon name="chat" size={28} /><span>Escolha uma conversa na lista.</span></div>
             ) : (
               <>
-                <div className="inbox-head" style={{ flexWrap: "wrap", rowGap: 8 }}>
-                  <button type="button" className="inbox-voltar" onClick={() => setSel(null)} aria-label="Voltar">
-                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6" /></svg>
+                <div className="inbox-head at-head">
+                  <button type="button" className="inbox-voltar" onClick={() => setSel(null)} aria-label="Voltar para a lista">
+                    <Icon name="chevron-left" size={22} />
                   </button>
                   <Avatar foto={sel.foto} nome={sel.contato_nome || sel.contato} />
                   <div className="inbox-head-info">
@@ -745,26 +702,26 @@ export default function AtendimentoCliente() {
                   </div>
 
                   {/* Ações de atribuição */}
-                  <div className="at-acoes" style={{ marginLeft: "auto" }}>
+                  <div className="at-acoes">
                     {sel.status === "resolvido" ? (
-                      <button className="at-btn" onClick={() => acao("reabrir")}>Reabrir</button>
+                      <button type="button" className="at-btn" onClick={() => acao("reabrir")}>Reabrir</button>
                     ) : (
                       <>
                         {!souDono && (
-                          <button className="at-btn prim" onClick={() => acao("assumir")}>Assumir</button>
+                          <button type="button" className="at-btn prim" onClick={() => acao("assumir")}>Assumir</button>
                         )}
                         {podeAgir && (
-                          <button className="at-btn" onClick={() => setTransferindo((v) => !v)}>Transferir ▾</button>
+                          <button type="button" className="at-btn" onClick={() => setTransferindo((v) => !v)} aria-expanded={transferindo}>Transferir <Icon name="chevron-down" size={14} /></button>
                         )}
                         {podeAgir && (
-                          <button className="at-btn ok" onClick={() => acao("resolver")}>Resolver</button>
+                          <button type="button" className="at-btn ok" onClick={() => acao("resolver")}><Icon name="check" size={14} /> Resolver</button>
                         )}
                       </>
                     )}
                   </div>
 
                   {transferindo && podeAgir && (
-                    <div style={{ flexBasis: "100%", display: "flex", gap: 6, flexWrap: "wrap" }}>
+                    <div className="at-transferir">
                       {(() => {
                         // Mostra colegas vinculados a este número primeiro; se não
                         // houver, mostra todos os atendentes (transferência livre
@@ -774,14 +731,14 @@ export default function AtendimentoCliente() {
                         return lista
                           .filter((a) => a.id !== sel.atendente_id)
                           .map((a) => (
-                            <button key={a.id} className="at-btn"
+                            <button key={a.id} type="button" className="at-btn"
                               onClick={async () => { if (await acao("transferir", { para: a.id })) setTransferindo(false); }}>
-                              <span className={`at-dot ${a.online && a.disponivel ? "on" : "off"}`} style={{ display: "inline-block", marginRight: 5 }} />
+                              <span className={`at-dot ${a.online && a.disponivel ? "on" : "off"}`} />
                               {a.nome.split(" ")[0]}
                             </button>
                           ));
                       })()}
-                      <button className="at-btn" onClick={async () => { if (await acao("transferir", { para: null })) setTransferindo(false); }}>↩ Devolver à fila</button>
+                      <button type="button" className="at-btn" onClick={async () => { if (await acao("transferir", { para: null })) setTransferindo(false); }}>Devolver à fila</button>
                     </div>
                   )}
                 </div>
@@ -790,14 +747,14 @@ export default function AtendimentoCliente() {
                   {msgs.map((m) => (
                     <div key={m.id} className={`bolha ${m.direcao === "in" ? "in" : "out"}`}>
                       {m.media && m.media_tipo === "audio" ? (
-                        <audio controls preload="none" src={m.media} style={{ maxWidth: 240, display: "block" }} />
+                        <audio className="bolha-audio" controls preload="none" src={m.media} />
                       ) : m.media && m.media_tipo === "imagem" ? (
                         <>
                           {/* eslint-disable-next-line @next/next/no-img-element */}
                           <a href={m.media} target="_blank" rel="noreferrer">
-                            <img src={m.media} alt="imagem" style={{ maxWidth: 240, borderRadius: 8, display: "block" }} />
+                            <img className="bolha-img" src={m.media} alt="Imagem enviada na conversa" />
                           </a>
-                          {m.texto && m.texto !== "🖼️ Imagem" && <div className="bolha-txt" style={{ marginTop: 4 }}>{m.texto}</div>}
+                          {m.texto && m.texto !== "🖼️ Imagem" && <div className="bolha-txt bolha-legenda">{m.texto}</div>}
                         </>
                       ) : (
                         <div className="bolha-txt">{m.texto}</div>
@@ -809,7 +766,7 @@ export default function AtendimentoCliente() {
                   <div ref={fimRef} />
                 </div>
 
-                {erro && <div className="msg err" style={{ margin: "0 12px" }}>{erro}</div>}
+                {erro && <div className="msg err at-erro">{erro}</div>}
 
                 {/* Gerenciar respostas rápidas (gestor) */}
                 {eu?.gestor && gerRapidas && (
@@ -823,20 +780,11 @@ export default function AtendimentoCliente() {
 
                 {/* Sugestões de resposta rápida ao digitar "/atalho" */}
                 {sugestoes.length > 0 && (
-                  <div style={{
-                    margin: "0 12px", border: "1px solid var(--border,#e3e6ec)", borderRadius: 10,
-                    background: "var(--card,#fff)", boxShadow: "var(--shadow)", overflow: "hidden",
-                  }}>
+                  <div className="at-sugestoes">
                     {sugestoes.map((r) => (
-                      <button key={r.id} type="button"
-                        onClick={() => setTexto(r.texto)}
-                        style={{
-                          display: "block", width: "100%", textAlign: "left", padding: "8px 12px",
-                          border: "none", borderBottom: "1px solid var(--border,#eee)",
-                          background: "transparent", cursor: "pointer", color: "inherit",
-                        }}>
-                        <b style={{ color: "var(--brand,#1f4fd6)" }}>/{r.atalho}</b>
-                        <span style={{ color: "var(--muted,#6b7280)", fontSize: 12.5, marginLeft: 8 }}>
+                      <button key={r.id} type="button" onClick={() => setTexto(r.texto)}>
+                        <b>/{r.atalho}</b>
+                        <span>
                           {r.texto.slice(0, 60)}{r.texto.length > 60 ? "…" : ""}
                         </span>
                       </button>
@@ -855,6 +803,7 @@ export default function AtendimentoCliente() {
                         setTexto(sugestoes[0].texto);
                       }
                     }}
+                    id="at-resposta"
                     placeholder={gravando ? "Gravando áudio…" : "Escreva uma resposta… (digite / para respostas rápidas)"}
                     disabled={gravando}
                   />
@@ -862,7 +811,7 @@ export default function AtendimentoCliente() {
                     ref={imgInputRef}
                     type="file"
                     accept="image/*"
-                    style={{ display: "none" }}
+                    hidden
                     onChange={(e) => { const f = e.target.files?.[0]; if (f) enviarImagem(f); }}
                   />
                   <button
@@ -870,26 +819,20 @@ export default function AtendimentoCliente() {
                     onClick={() => imgInputRef.current?.click()}
                     disabled={enviando || gravando}
                     title="Enviar imagem"
-                    style={{
-                      flex: "none", width: 42, borderRadius: 8, cursor: "pointer",
-                      border: "1px solid var(--border,#e3e6ec)", background: "var(--card,#fff)",
-                      color: "inherit", fontSize: 18,
-                    }}
+                    aria-label="Enviar imagem"
+                    className="reply-ic"
                   >
-                    🖼️
+                    <Icon name="image" size={18} />
                   </button>
                   {eu?.gestor && (
                     <button
                       type="button"
                       onClick={() => setGerRapidas((v) => !v)}
                       title="Gerenciar respostas rápidas"
-                      style={{
-                        flex: "none", width: 42, borderRadius: 8, cursor: "pointer",
-                        border: "1px solid var(--border,#e3e6ec)", background: "var(--card,#fff)",
-                        color: "inherit", fontSize: 16,
-                      }}
+                      aria-label="Gerenciar respostas rápidas"
+                      className="reply-ic"
                     >
-                      ⚡
+                      <Icon name="zap" size={18} />
                     </button>
                   )}
                   <button
@@ -897,16 +840,12 @@ export default function AtendimentoCliente() {
                     onClick={alternarGravacao}
                     disabled={enviando}
                     title={gravando ? "Parar e enviar" : "Gravar áudio"}
-                    style={{
-                      flex: "none", width: 42, borderRadius: 8, cursor: "pointer",
-                      border: "1px solid var(--border,#e3e6ec)",
-                      background: gravando ? "#c8262b" : "var(--card,#fff)",
-                      color: gravando ? "#fff" : "inherit", fontSize: 18,
-                    }}
+                    aria-label={gravando ? "Parar e enviar o áudio" : "Gravar áudio"}
+                    className={`reply-ic${gravando ? " gravando" : ""}`}
                   >
-                    {gravando ? "■" : "🎤"}
+                    <Icon name={gravando ? "square" : "mic"} size={18} />
                   </button>
-                  <button type="submit" className="btn btn-primary" style={{ flex: "none" }} disabled={enviando || gravando}>
+                  <button type="submit" className="btn btn-primary" disabled={enviando || gravando}>
                     {enviando ? "…" : "Enviar"}
                   </button>
                 </form>
@@ -935,34 +874,36 @@ function GerenciarRapidas({
   const [txt, setTxt] = useState("");
   const [erro, setErro] = useState("");
   return (
-    <div style={{ margin: "0 12px 8px", border: "1px solid var(--border,#e3e6ec)", borderRadius: 10, background: "var(--card,#fff)", boxShadow: "var(--shadow)", padding: 12 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+    <div className="at-rapidas">
+      <div className="at-rapidas-topo">
         <b>Respostas rápidas</b>
-        <button type="button" onClick={onFechar} style={{ border: "none", background: "transparent", cursor: "pointer", fontSize: 18, color: "var(--muted,#6b7280)" }}>×</button>
+        <button type="button" className="modal-x" onClick={onFechar} aria-label="Fechar respostas rápidas">
+          <Icon name="x" size={16} />
+        </button>
       </div>
       {respostas.length === 0 ? (
-        <div style={{ color: "var(--muted,#6b7280)", fontSize: 12.5, marginBottom: 8 }}>Nenhuma ainda. Crie a primeira abaixo.</div>
+        <p className="muted">Nenhuma ainda. Crie a primeira abaixo.</p>
       ) : (
-        <div style={{ maxHeight: 160, overflowY: "auto", marginBottom: 8 }}>
+        <div className="at-rapidas-lista">
           {respostas.map((r) => (
-            <div key={r.id} style={{ display: "flex", gap: 8, alignItems: "center", padding: "5px 0", borderBottom: "1px solid var(--border,#eee)" }}>
-              <b style={{ color: "var(--brand,#1f4fd6)", flex: "none" }}>/{r.atalho}</b>
-              <span style={{ flex: 1, color: "var(--muted,#6b7280)", fontSize: 12.5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.texto}</span>
-              <button type="button" onClick={() => onExcluir(r.id)} style={{ flex: "none", border: "1px solid var(--border,#e3e6ec)", background: "transparent", color: "var(--red,#c8262b)", borderRadius: 7, padding: "3px 9px", cursor: "pointer", fontSize: 12 }}>excluir</button>
+            <div key={r.id} className="at-rapidas-item">
+              <b>/{r.atalho}</b>
+              <span>{r.texto}</span>
+              <button type="button" className="btn-acao danger" onClick={() => onExcluir(r.id)}>Excluir</button>
             </div>
           ))}
         </div>
       )}
-      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-        <input value={atalho} onChange={(e) => setAtalho(e.target.value)} placeholder="atalho (ex.: saudacao)" style={{ flex: "0 0 150px" }} />
-        <input value={txt} onChange={(e) => setTxt(e.target.value)} placeholder="texto da mensagem" style={{ flex: 1, minWidth: 160 }} />
+      <div className="at-rapidas-nova">
+        <input id="rapida-atalho" value={atalho} onChange={(e) => setAtalho(e.target.value)} placeholder="atalho (ex.: saudacao)" />
+        <input id="rapida-texto" value={txt} onChange={(e) => setTxt(e.target.value)} placeholder="texto da mensagem" />
         <button type="button" className="at-btn prim" onClick={async () => {
           if (!atalho.trim() || !txt.trim()) { setErro("Preencha atalho e texto."); return; }
           if (await onCriar(atalho, txt)) { setAtalho(""); setTxt(""); setErro(""); }
           else setErro("Não foi possível salvar.");
         }}>Adicionar</button>
       </div>
-      {erro && <div style={{ color: "var(--red,#c8262b)", fontSize: 12.5, marginTop: 6 }}>{erro}</div>}
+      {erro && <p className="at-rapidas-erro">{erro}</p>}
     </div>
   );
 }

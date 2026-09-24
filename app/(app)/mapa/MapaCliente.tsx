@@ -12,12 +12,12 @@ import {
 } from "react-leaflet";
 import CountUp from "../../components/CountUp";
 import spContornoRaw from "@/data/sp-contorno.json";
+import Icon from "../../components/Icon";
 
 const SP_CONTORNO = spContornoRaw as [number, number][];
 
-// Base do candidato + pontos de interesse/culturais de Suzano (referências a
-// confirmar). Ficam sempre destacados e interligados no mapa.
-const SUZANO: [number, number] = [-23.5426, -46.3110];
+// Pontos de interesse de Suzano: só aparecem quando algum candidato visível
+// tem Suzano como cidade base (Agentes → Ajustes → Cidade base).
 const POIS_SUZANO: { nome: string; tipo: string; lat: number; lng: number }[] = [
   { nome: "Parque Max Feffer", tipo: "Cultura e lazer", lat: -23.5389, lng: -46.3075 },
   { nome: "Centro · Prefeitura", tipo: "Institucional", lat: -23.5443, lng: -46.3112 },
@@ -34,6 +34,9 @@ const DIACRIT = new RegExp(
 );
 const normCid = (s: string) =>
   (s || "").normalize("NFD").replace(DIACRIT, "").trim().toLowerCase();
+
+// Cidade base de candidatos (vem da API, conforme o escopo de quem vê).
+type Base = { cidade: string; candidatos: string[]; lat: number; lng: number };
 
 type PessoaCidade = {
   id: number;
@@ -101,13 +104,14 @@ function InvalidarTamanho() {
   return null;
 }
 
-// Tons de azul por densidade (claro -> escuro).
+// Escala dourada por densidade: quanto mais cadastros, mais clara e intensa
+// (sobre a base escura, o mais denso é o que mais acende).
 function cor(total: number, max: number): string {
   const r = max > 0 ? total / max : 0;
-  if (r > 0.66) return "#0f458f";
-  if (r > 0.33) return "#1657b8";
-  if (r > 0.1) return "#2c86e8";
-  return "#7db4ef";
+  if (r > 0.66) return "#f2cf7e";
+  if (r > 0.33) return "#dcb15a";
+  if (r > 0.1) return "#b08b43";
+  return "#7d6634";
 }
 
 export default function MapaCliente() {
@@ -120,6 +124,7 @@ export default function MapaCliente() {
   const [cidadeFiltro, setCidadeFiltro] = useState("");
   const [agenteFiltro, setAgenteFiltro] = useState("");
   const [ehGlobal, setEhGlobal] = useState(false); // só ADMIN cruza candidatos
+  const [bases, setBases] = useState<Base[]>([]);
 
   // Painel "quem está cadastrado nesta bolinha"
   const [cidadeAberta, setCidadeAberta] = useState<string | null>(null);
@@ -153,6 +158,7 @@ export default function MapaCliente() {
         if (Array.isArray(d?.cidades)) setCidades(d.cidades);
         if (Array.isArray(d?.agentes)) setAgentes(d.agentes);
         if ("ehGlobal" in (d || {})) setEhGlobal(!!d.ehGlobal);
+        if (Array.isArray(d?.bases)) setBases(d.bases);
       })
       .catch(() => {});
   }, [cidadeFiltro, agenteFiltro]);
@@ -339,7 +345,7 @@ export default function MapaCliente() {
             <span className="n"><CountUp value={resumo?.totalDemandas ?? 0} /></span>
           </div>
           <div className="rank-item" title="Posição no mapa pela cidade que a pessoa informou (preciso).">
-            <span>📍 Confirmados por cidade</span>
+            <span className="com-icone"><Icon name="map-pin" size={13} /> Confirmados por cidade</span>
             <span className="n" style={{ color: "var(--green)" }}>
               <CountUp value={confirmados} />
             </span>
@@ -442,8 +448,13 @@ export default function MapaCliente() {
           Mostrar pautas ({pautas.reduce((s, p) => s + p.total, 0)})
         </label>
         <span className="cam-legenda">
-          <i className="cam-dot azul" /> Contatos
-          <i className="cam-dot ambar" /> Pautas
+          <i className="cam-dot contatos" /> Contatos
+          <i className="cam-dot pautas" /> Pautas
+          {bases.length > 0 && (
+            <>
+              <i className="cam-dot base" /> Cidade base
+            </>
+          )}
         </span>
       </div>
 
@@ -456,11 +467,11 @@ export default function MapaCliente() {
           maxBounds={SP_BOUNDS}
           maxBoundsViscosity={0.8}
         >
-          {/* Basemap claro SEM chave de API (a CartoDB passou a exigir key).
-              Esri "Light Gray Canvas" é gratuito e mantém o visual claro. */}
+          {/* Base ESCURA sem chave de API (Esri "Dark Gray Canvas", gratuita),
+              no mesmo tema do sistema. As bolhas douradas acendem sobre ela. */}
           <TileLayer
             attribution="Tiles &copy; Esri &mdash; &copy; OpenStreetMap"
-            url="https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}"
+            url="https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}"
             maxZoom={16}
           />
           {/* Recalcula o tamanho (corrige mapa em branco/espremido em grid/flex). */}
@@ -470,42 +481,49 @@ export default function MapaCliente() {
           {/* Contorno do estado de São Paulo (área de atuação) */}
           <Polyline
             positions={SP_CONTORNO}
-            pathOptions={{ color: "#0f458f", weight: 2, opacity: 0.7, fill: false, dashArray: "5 5" }}
+            pathOptions={{ color: "#dcb15a", weight: 1.5, opacity: 0.45, fill: false, dashArray: "5 6" }}
           />
 
-          {/* Suzano: base do candidato — interliga com os pontos culturais/interesse */}
-          {POIS_SUZANO.map((poi, i) => (
-            <Polyline
-              key={"lig-" + i}
-              positions={[SUZANO, [poi.lat, poi.lng]]}
-              pathOptions={{ color: "#0b9247", weight: 1.5, opacity: 0.5, dashArray: "3 5" }}
-            />
-          ))}
-          {POIS_SUZANO.map((poi, i) => (
+          {/* Pontos de interesse de Suzano, ligados à base (só se Suzano for base). */}
+          {bases
+            .filter((b) => normCid(b.cidade) === "suzano")
+            .flatMap((b) =>
+              POIS_SUZANO.map((poi, i) => (
+                <Polyline
+                  key={"lig-" + i}
+                  positions={[[b.lat, b.lng], [poi.lat, poi.lng]]}
+                  pathOptions={{ color: "#3fc98a", weight: 1.2, opacity: 0.5, dashArray: "3 5" }}
+                />
+              ))
+            )}
+          {bases.some((b) => normCid(b.cidade) === "suzano") &&
+            POIS_SUZANO.map((poi, i) => (
+              <CircleMarker
+                key={"poi-" + i}
+                center={[poi.lat, poi.lng]}
+                radius={6}
+                pathOptions={{ color: "#3fc98a", fillColor: "#3fc98a", fillOpacity: 0.8, weight: 1.5 }}
+              >
+                <Tooltip>
+                  <b>{poi.nome}</b>
+                  <br />
+                  <span className="tt-sub">{poi.tipo} · Suzano</span>
+                </Tooltip>
+              </CircleMarker>
+            ))}
+          {/* Cidade base de cada candidato visível (Agentes → Ajustes). */}
+          {bases.map((b) => (
             <CircleMarker
-              key={"poi-" + i}
-              center={[poi.lat, poi.lng]}
-              radius={7}
-              pathOptions={{ color: "#0b7a3b", fillColor: "#0b9247", fillOpacity: 0.85, weight: 1.5 }}
+              key={"base-" + b.cidade}
+              center={[b.lat, b.lng]}
+              radius={10}
+              pathOptions={{ color: "#f2cf7e", fillColor: "#0c0e12", fillOpacity: 1, weight: 3 }}
             >
-              <Tooltip>
-                <b>{poi.nome}</b>
-                <br />
-                <span style={{ color: "#0b9247" }}>{poi.tipo}</span>
-                <br />
-                <span style={{ color: "#888" }}>Suzano · ponto de interesse</span>
+              <Tooltip permanent direction="top" offset={[0, -8]} className="tt-base">
+                <b>{b.cidade}</b> · base{ehGlobal ? ` de ${b.candidatos.join(", ")}` : ""}
               </Tooltip>
             </CircleMarker>
           ))}
-          <CircleMarker
-            center={SUZANO}
-            radius={11}
-            pathOptions={{ color: "#FBBA00", fillColor: "#ED1C24", fillOpacity: 0.9, weight: 3 }}
-          >
-            <Tooltip permanent direction="top" offset={[0, -8]} className="tt-suzano">
-              <b>SUZANO</b> · nossa base
-            </Tooltip>
-          </CircleMarker>
 
           {pontos.map((p) => {
             const destacada = !!cidadeFiltro && normCid(p.cidade) === normCid(cidadeFiltro);
@@ -516,9 +534,9 @@ export default function MapaCliente() {
                 radius={8 + Math.sqrt(p.total) * 5}
                 eventHandlers={{ click: () => abrirCidade(p.cidade) }}
                 pathOptions={{
-                  color: destacada ? "#0b2f63" : cor(p.total, max),
+                  color: destacada ? "#fff4d6" : cor(p.total, max),
                   fillColor: cor(p.total, max),
-                  fillOpacity: cidadeFiltro && !destacada ? 0.2 : 0.6,
+                  fillOpacity: cidadeFiltro && !destacada ? 0.15 : 0.45,
                   weight: destacada ? 3 : 1.5,
                 }}
               >
@@ -527,9 +545,9 @@ export default function MapaCliente() {
                   <br />
                   {p.total} cadastro(s)
                   <br />
-                  <span style={{ color: "#888" }}>{p.regiao || "-"}</span>
+                  <span className="tt-sub">{p.regiao || "-"}</span>
                   <br />
-                  <span style={{ color: "var(--accent)" }}>clique para ver quem está aqui</span>
+                  <span className="tt-acao">Clique para ver quem está aqui</span>
                 </Tooltip>
               </CircleMarker>
             );
@@ -540,14 +558,14 @@ export default function MapaCliente() {
                 key={"pauta-" + i}
                 center={[p.lat, p.lng]}
                 radius={6 + Math.sqrt(p.total) * 4}
-                pathOptions={{ color: "#B85C00", fillColor: "#E8820C", fillOpacity: 0.75, weight: 1.5 }}
+                pathOptions={{ color: "#78a2f2", fillColor: "#78a2f2", fillOpacity: 0.55, weight: 1.5 }}
               >
                 <Tooltip>
                   <b>{p.total} pauta(s)</b>
                   <br />
                   {p.tema_top ? TEMA_ROTULO[p.tema_top] || p.tema_top : "Diversos"}
                   <br />
-                  <span style={{ color: "#888" }}>
+                  <span className="tt-sub">
                     {[p.bairro, p.cidade].filter(Boolean).join(" · ") || "-"}
                   </span>
                 </Tooltip>

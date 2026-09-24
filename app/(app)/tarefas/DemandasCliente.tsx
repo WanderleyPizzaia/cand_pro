@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import CountUp from "../../components/CountUp";
+import Icon from "../../components/Icon";
 
 export const PRIORIDADE = ["Baixa", "Média", "Alta"];
 
@@ -279,10 +280,10 @@ export default function DemandasCliente({
                 <span className="kc-nome">{col}</span>
                 <span className="kc-count">{cardsDe(col).length}</span>
                 <span className="kc-menu">
-                  <button onClick={() => moverColuna(idx, -1)} title="Mover para a esquerda" disabled={idx === 0}>‹</button>
-                  <button onClick={() => moverColuna(idx, 1)} title="Mover para a direita" disabled={idx === colunas.length - 1}>›</button>
-                  <button onClick={() => renomearColuna(idx)} title="Renomear">✎</button>
-                  <button onClick={() => excluirColuna(idx)} title="Excluir coluna" className="perigo">✕</button>
+                  <button type="button" onClick={() => moverColuna(idx, -1)} title="Mover para a esquerda" aria-label="Mover coluna para a esquerda" disabled={idx === 0}><Icon name="chevron-left" size={14} /></button>
+                  <button type="button" onClick={() => moverColuna(idx, 1)} title="Mover para a direita" aria-label="Mover coluna para a direita" disabled={idx === colunas.length - 1}><Icon name="chevron-right" size={14} /></button>
+                  <button type="button" onClick={() => renomearColuna(idx)} title="Renomear" aria-label="Renomear coluna"><Icon name="edit" size={13} /></button>
+                  <button type="button" onClick={() => excluirColuna(idx)} title="Excluir coluna" aria-label="Excluir coluna" className="perigo"><Icon name="x" size={13} /></button>
                 </span>
               </div>
 
@@ -298,14 +299,14 @@ export default function DemandasCliente({
                   >
                     <div className="kc-titulo">{d.titulo}</div>
                     <div className="kc-tags">
-                      <span className="kc-prio" style={{ color: corPrioridade(d.prioridade) }}>● {d.prioridade}</span>
+                      <span className="kc-prio" style={{ color: corPrioridade(d.prioridade) }}><i className="kc-prio-dot" aria-hidden="true" /> {d.prioridade}</span>
                       {d.categoria && <span className="tag">{d.categoria}</span>}
                     </div>
                     {(d.responsavel_nome || d.eleitor_nome || d.cidade) && (
                       <div className="kc-meta">
-                        {d.responsavel_nome && <span>👤 {d.responsavel_nome}</span>}
-                        {d.eleitor_nome && <span>🗳 {d.eleitor_nome}</span>}
-                        {d.cidade && <span>📍 {d.cidade}</span>}
+                        {d.responsavel_nome && <span><Icon name="user" size={12} /> {d.responsavel_nome}</span>}
+                        {d.eleitor_nome && <span><Icon name="star" size={12} /> {d.eleitor_nome}</span>}
+                        {d.cidade && <span><Icon name="map-pin" size={12} /> {d.cidade}</span>}
                       </div>
                     )}
                     <div className="kc-rodape">

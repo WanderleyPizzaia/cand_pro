@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import Icon from "../../components/Icon";
 
 type Agente = { id: number; candidato: string };
 type Lista = {
@@ -140,13 +141,13 @@ export default function ListasCliente({ agentes }: { agentes: Agente[] }) {
 
       {/* Resumo da última importação */}
       {resumo && (
-        <div className="form-card" style={{ marginBottom: 16, borderLeft: "3px solid var(--brand, #1f4fd6)" }}>
+        <div className="form-card resumo-import">
           <b>Importação em "{resumo.lista}"</b>
-          <div style={{ display: "flex", gap: 18, flexWrap: "wrap", marginTop: 8, fontSize: 14 }}>
-            <span>✅ <b>{resumo.r.novos}</b> novos</span>
-            <span>♻️ <b>{resumo.r.reaproveitados}</b> reaproveitados (dedup)</span>
-            <span>📋 <b>{resumo.r.jaNaLista}</b> já estavam na lista</span>
-            <span>⚠️ <b>{resumo.r.semTelefone}</b> sem telefone válido</span>
+          <div className="resumo-import-linha">
+            <span className="txt-ok com-icone"><Icon name="check" size={14} /> <b>{resumo.r.novos}</b> novos</span>
+            <span className="com-icone"><Icon name="refresh" size={14} /> <b>{resumo.r.reaproveitados}</b> já existiam na base (reaproveitados)</span>
+            <span className="com-icone"><Icon name="list" size={14} /> <b>{resumo.r.jaNaLista}</b> já estavam na lista</span>
+            <span className="txt-atencao com-icone"><Icon name="alert" size={14} /> <b>{resumo.r.semTelefone}</b> sem telefone válido</span>
             <span style={{ color: "var(--muted)" }}>{resumo.r.total} linhas lidas</span>
           </div>
           {resumo.r.erros.length > 0 && (
@@ -188,7 +189,7 @@ export default function ListasCliente({ agentes }: { agentes: Agente[] }) {
                   </td>
                   <td data-label="Número">{l.agente_nome}</td>
                   <td data-label="Contatos" style={{ fontVariantNumeric: "tabular-nums" }}>{l.membros}</td>
-                  <td data-label="Com WhatsApp" style={{ fontVariantNumeric: "tabular-nums", color: "var(--green, #2c7a4b)" }}>
+                  <td data-label="Com WhatsApp" style={{ fontVariantNumeric: "tabular-nums", color: "var(--green)" }}>
                     {l.com_whatsapp}
                   </td>
                   <td data-label="Criada" style={{ color: "var(--muted)", fontSize: 12.5 }}>{l.criado_em}</td>
