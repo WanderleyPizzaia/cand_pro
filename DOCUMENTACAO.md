@@ -311,7 +311,7 @@ liga/desliga (responder automático) e métricas (mensagens totais, recebidas
 hoje). Mostra a **URL do webhook** para colar na Evolution. Funciona em "modo
 pendente" até as chaves (Evolution + Claude) estarem configuradas.
 
-**Galeria do agente** (em Ajustes, e em Meu agente para o candidato): arquivos
+**Galeria do agente** (botão "Santinho e arquivos" no cartão, e em Meu agente para o candidato): arquivos
 prontos que a IA pode mandar no WhatsApp, como santinho (imagem) e plano de
 governo (PDF). Cada arquivo tem nome, **situação em que deve ser enviado**
 (texto livre que vai para a IA) e legenda opcional. Aceita JPG, PNG ou
