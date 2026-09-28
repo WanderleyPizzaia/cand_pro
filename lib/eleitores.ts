@@ -51,6 +51,40 @@ function resolverGeo(cidade: string | null, numero: string): Geo {
   return { lat: null, lng: null, cidade, regiao: null };
 }
 
+// Contato DESTE candidato para o número da conversa. Se ainda não existe
+// (a IA não chegou a cadastrar), cria um mínimo, posicionado pelo DDD, para a
+// equipe poder etiquetar. Devolve o id, ou null se o número for inválido.
+export async function garantirContato(
+  agenteId: number,
+  numero: string,
+  nome: string | null,
+  criadoPor: string
+): Promise<number | null> {
+  const digits = (numero || "").replace(/\D/g, "");
+  if (!digits) return null;
+  const existente = await queryOne<{ id: number }>(
+    `SELECT id FROM pessoas
+      WHERE regexp_replace(COALESCE(whatsapp,''),'\\D','','g') = $1 AND agente_id = $2
+      ORDER BY id LIMIT 1`,
+    [digits, agenteId]
+  );
+  if (existente) return existente.id;
+  const geo = resolverGeo(null, digits);
+  const novo = await queryOne<{ id: number }>(
+    `INSERT INTO pessoas (nome, categoria, cidade, regiao, whatsapp, lat, lng, agente_id, criado_por)
+     VALUES ($1, 'Eleitor', $2, $3, $4, $5, $6, $7, $8) RETURNING id`,
+    [nomeReal(nome) || "Sem nome", geo.cidade, geo.regiao, digits, geo.lat, geo.lng, agenteId, criadoPor]
+  );
+  if (novo && geo.lat != null && geo.lng != null) {
+    await execute("UPDATE pessoas SET lat = $1, lng = $2 WHERE id = $3", [
+      geo.lat + jitter(novo.id, 1),
+      geo.lng + jitter(novo.id, 2),
+      novo.id,
+    ]);
+  }
+  return novo?.id ?? null;
+}
+
 // Captura/atualiza o eleitor após uma mensagem recebida.
 export async function capturarEleitor(
   agente: Agente,

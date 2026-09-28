@@ -15,6 +15,46 @@ import { queryOne, execute } from "./db";
 
 export const COMANDO = "/ia";
 
+// "IA respondendo" em SQL, com a MESMA regra de estaPausado: agente ligado e
+// nenhuma pausa valendo (pedida por comando, agente configurado para não
+// expirar, ou alguém da equipe respondeu há menos de N horas).
+// Pede os aliases `at` (atendimentos) e `ag` (agentes) na consulta.
+const HORAS_PAUSA = `COALESCE(ag.config->'limites'->>'pausa_humana_horas', '6')`;
+export const SQL_IA_RESPONDENDO = `(COALESCE(ag.ativo, 0) = 1 AND NOT EXISTS (
+    SELECT 1 FROM atendimento_pausado p
+     WHERE p.agente_id = at.agente_id AND p.contato = at.contato
+       AND (p.tipo = 'comando'
+            OR COALESCE(NULLIF(${HORAS_PAUSA}, '')::numeric, 0) <= 0
+            OR p.pausado_em >= now() - COALESCE(NULLIF(${HORAS_PAUSA}, '')::numeric, 6) * interval '1 hour')))`;
+
+// Etiquetas do contato da conversa: o contato DAQUELE candidato (agente_id).
+// Junta como `et` (pede o alias `at` de atendimentos).
+export const SQL_JOIN_ETIQUETAS = `LEFT JOIN LATERAL (
+    SELECT etiquetas FROM pessoas
+     WHERE regexp_replace(COALESCE(whatsapp,''),'\\D','','g') = at.contato
+       AND agente_id = at.agente_id
+     ORDER BY id LIMIT 1
+  ) et ON true`;
+
+// Liga/desliga uma etiqueta no contato, numa operação só (dois atendentes
+// marcando ao mesmo tempo não se atropelam). Devolve as etiquetas finais.
+export async function gravarEtiqueta(
+  pessoaId: number,
+  etiqueta: string,
+  oposta: string | null,
+  ligar: boolean
+): Promise<string[]> {
+  const r = await queryOne<{ etiquetas: string[] }>(
+    ligar
+      ? `UPDATE pessoas
+            SET etiquetas = array_append(array_remove(array_remove(etiquetas, $1), $2), $1)
+          WHERE id = $3 RETURNING etiquetas`
+      : `UPDATE pessoas SET etiquetas = array_remove(etiquetas, $1) WHERE id = $2 RETURNING etiquetas`,
+    ligar ? [etiqueta, oposta ?? "", pessoaId] : [etiqueta, pessoaId]
+  );
+  return r?.etiquetas ?? [];
+}
+
 // Detecta o comando de alternância. Exige a mensagem inteira (só espaços e
 // pontuação em volta), para nunca confundir com conversa normal.
 export function contemComando(texto: string | null | undefined): boolean {

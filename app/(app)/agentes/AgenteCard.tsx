@@ -73,6 +73,7 @@ export default function AgenteCard({
   const [tempoReal, setTempoReal] = useState<boolean | null>(null);
   const [religando, setReligando] = useState(false);
   const [ajustes, setAjustes] = useState(false);
+  const [arquivos, setArquivos] = useState(false);
   const [f, setF] = useState({
     instancia: agente.instancia || "",
     telefone: agente.telefone || "",
@@ -515,6 +516,9 @@ export default function AgenteCard({
             <Icon name="alert" size={12} /> {temChaveGlobal ? "Sem chave de IA própria" : "Não responde: sem chave de IA"}
           </span>
         )}
+        <button className="btn-link" onClick={() => setArquivos((v) => !v)} aria-expanded={arquivos}>
+          <Icon name="image" size={14} /> Santinho e arquivos
+        </button>
         <button className="btn-link" onClick={() => setAjustes((v) => !v)}>
           {ajustes ? "Fechar ajustes" : "Ajustes"} <Icon name={ajustes ? "chevron-down" : "chevron-right"} size={14} />
         </button>
@@ -528,6 +532,13 @@ export default function AgenteCard({
           </button>
         )}
       </div>
+
+      {/* Material de campanha que a IA pode mandar (salva sozinho, sem o Salvar) */}
+      {arquivos && (
+        <div className="agente-form">
+          <GaleriaAgente agenteId={agente.id} />
+        </div>
+      )}
 
       {ajustes && (
         <div className="agente-form">
@@ -793,9 +804,6 @@ export default function AgenteCard({
               {salvando ? "Salvando..." : "Salvar"}
             </button>
           </div>
-
-          {/* Material de campanha que a IA pode mandar (salva sozinho, fora do Salvar) */}
-          <GaleriaAgente agenteId={agente.id} />
 
           {/* Manutenção da instância Evolution (não se aplica ao provedor Meta) */}
           {!ehMeta && (

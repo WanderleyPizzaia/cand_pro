@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { query, Pessoa } from "@/lib/db";
 import { getSessao } from "@/lib/auth";
 import { agentesDaSessao } from "@/lib/escopo";
+import { ETIQUETAS, ehEtiqueta } from "@/lib/etiquetas";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60; // export de dezenas de milhares de linhas
@@ -18,6 +19,7 @@ const COLUNAS = [
   "email",
   "instagram",
   "observacao",
+  "etiquetas",
   "autor",
   "criado_em",
 ] as const;
@@ -47,12 +49,13 @@ export async function GET(req: NextRequest) {
   const busca = (url.searchParams.get("q") ?? "").trim();
   const categoria = (url.searchParams.get("categoria") ?? "").trim();
   const cidade = (url.searchParams.get("cidade") ?? "").trim();
+  const etiqueta = (url.searchParams.get("etiqueta") ?? "").trim();
 
   // Só as colunas do CSV — NÃO puxa `foto` (base64) nem lat/lng, senão o export
   // carrega megabytes de imagem por linha e estoura o tempo da função.
   const base =
     "SELECT p.nome, p.categoria, p.funcao, p.partido, p.cidade, p.regiao, p.bairro, " +
-    "p.whatsapp, p.email, p.instagram, p.observacao, " +
+    "p.whatsapp, p.email, p.instagram, p.observacao, p.etiquetas, " +
     "to_char(p.criado_em,'YYYY-MM-DD HH24:MI') AS criado_fmt, u.nome AS autor " +
     // CASE garante que o ::bigint só roda em valores numéricos (senão o
     // Postgres tenta converter um criado_por textual e estoura -> 500 no export).
@@ -82,6 +85,10 @@ export async function GET(req: NextRequest) {
     params.push(cidade);
     cond.push(`p.cidade = $${params.length}`);
   }
+  if (ehEtiqueta(etiqueta)) {
+    params.push(etiqueta);
+    cond.push(`p.etiquetas @> ARRAY[$${params.length}]::text[]`);
+  }
 
   // Busca por nome / cidade / whatsapp (mesma busca da tela de Contatos).
   if (busca) {
@@ -102,7 +109,13 @@ export async function GET(req: NextRequest) {
   const corpo = linhas
     .map((l: any) =>
       COLUNAS.map((c) =>
-        celula(c === "criado_em" ? l.criado_fmt : l[c])
+        celula(
+          c === "criado_em"
+            ? l.criado_fmt
+            : c === "etiquetas"
+            ? ETIQUETAS.filter((e) => (l.etiquetas || []).includes(e.v)).map((e) => e.rotulo).join(" / ")
+            : l[c]
+        )
       ).join(",")
     )
     .join("\n");

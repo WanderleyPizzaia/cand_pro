@@ -781,6 +781,28 @@
   margin-top: 6px;
   white-space: pre-wrap;
 }
+/* Etiquetas: chips na linha da tabela e botões no painel do contato */
+.ct-etq {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 3px;
+}
+.ct-etq .selo {
+  padding: 0 6px;
+}
+.ct-etiquetas {
+  margin: 20px 0 16px;
+}
+.ct-etiquetas-opcoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2);
+  margin-top: 8px;
+}
+.ct-etiquetas .hint {
+  margin-top: 6px;
+}
 
 @media (max-width: 1280px) {
   .ct-col-cid,
@@ -1493,9 +1515,48 @@
 }
 .at-conv-sub {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 6px;
   margin-top: 2px;
+}
+.at-conv-sub .selo {
+  padding: 0 6px;
+}
+/* Etiquetas do contato no topo da conversa aberta */
+.at-etiquetas {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-2);
+  padding: var(--s-2) 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--panel);
+}
+.at-etiquetas .chip {
+  min-height: 28px;
+  padding: 2px 10px;
+  font-size: var(--fs-1);
+}
+@media (max-width: 1024px) {
+  .at-etiquetas .chip {
+    min-height: 40px;
+  }
+}
+.chip.etq.ok.ativo {
+  background: var(--green-soft);
+  border-color: var(--green-line);
+  color: var(--green);
+}
+.chip.etq.erro.ativo {
+  background: var(--red-soft);
+  border-color: var(--red-line);
+  color: var(--red);
+}
+.chip.etq.atencao.ativo {
+  background: var(--yellow-soft);
+  border-color: var(--yellow-line);
+  color: var(--yellow);
 }
 .at-conv-atendente {
   color: var(--faint);

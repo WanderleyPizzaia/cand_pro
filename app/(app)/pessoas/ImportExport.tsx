@@ -3,14 +3,19 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Icon from "../../components/Icon";
+import { decodificarArquivo, detectarDelimitador, mapearCabecalho, parseCSV } from "@/lib/csv";
+
+// Linhas por pedido: cabe folgado no limite de tempo e de tamanho da Vercel.
+const PARTE = 1000;
+const fmt = (n: number) => n.toLocaleString("pt-BR");
 
 export default function ImportExport() {
   const router = useRouter();
   const sp = useSearchParams();
-  // Exporta respeitando os filtros atuais da tela (candidato, categoria, cidade e busca).
+  // Exporta respeitando os filtros atuais da tela (candidato, categoria, cidade, etiqueta e busca).
   const exportHref = (() => {
     const p = new URLSearchParams();
-    for (const k of ["candidato", "categoria", "cidade", "q"]) {
+    for (const k of ["candidato", "categoria", "cidade", "etiqueta", "q"]) {
       const v = sp.get(k);
       if (v) p.set(k, v);
     }
@@ -35,6 +40,7 @@ export default function ImportExport() {
   const inputRef = useRef<HTMLInputElement>(null);
   const [msg, setMsg] = useState<{ t: "ok" | "err"; x: string } | null>(null);
   const [importando, setImportando] = useState(false);
+  const [progresso, setProgresso] = useState("");
   const [sincFotos, setSincFotos] = useState(false);
 
   async function sincronizarFotos() {
@@ -67,6 +73,20 @@ export default function ImportExport() {
     }
   }
 
+  // Aviso ao sair no meio da importação (o que já foi continua gravado).
+  useEffect(() => {
+    if (!importando) return;
+    const segurar = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", segurar);
+    return () => window.removeEventListener("beforeunload", segurar);
+  }, [importando]);
+
+  // Lê o arquivo aqui, manda em partes e soma o resultado. Número que já
+  // existe no candidato é pulado no servidor: reimportar a mesma planilha
+  // completa só o que faltou.
   async function aoEscolher(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     e.target.value = ""; // permite reimportar o mesmo arquivo
@@ -75,31 +95,65 @@ export default function ImportExport() {
     setImportando(true);
     setMsg(null);
     try {
-      const texto = await file.text();
+      const texto = decodificarArquivo(await file.arrayBuffer());
+      const linhas = parseCSV(texto, detectarDelimitador(texto));
+      if (linhas.length < 2) {
+        setMsg({ t: "err", x: "CSV sem dados (precisa de cabeçalho + linhas)." });
+        return;
+      }
+      const [cabecalho, ...dados] = linhas;
+      if (!mapearCabecalho(cabecalho).includes("nome")) {
+        setMsg({ t: "err", x: 'O CSV precisa de uma coluna "nome".' });
+        return;
+      }
       // Vincula ao número selecionado na aba (candidato = id do agente), se houver.
       const cand = sp.get("candidato");
       const url = cand ? `/api/pessoas/import?candidato=${encodeURIComponent(cand)}` : "/api/pessoas/import";
-      const r = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "text/plain; charset=utf-8" },
-        body: texto,
-      });
-      const d = await r.json();
-      if (!r.ok) {
-        setMsg({ t: "err", x: d.erro || "Erro ao importar." });
-      } else {
-        const extra = d.ignorados ? ` · ${d.ignorados} ignorado(s)` : "";
-        const erro = d.erros?.length ? ` · ${d.erros.length} com erro` : "";
-        setMsg({
-          t: "ok",
-          x: `${d.inseridos} cadastro(s) importado(s)${extra}${erro}.`,
-        });
-        router.refresh();
+      const soma = { inseridos: 0, duplicados: 0, ignorados: 0, falhas: 0 };
+      const linhasErro: number[] = [];
+
+      for (let i = 0; i < dados.length; i += PARTE) {
+        setProgresso(`Importando ${fmt(Math.min(i + PARTE, dados.length))} de ${fmt(dados.length)}…`);
+        const corpo = JSON.stringify({ cabecalho, linhas: dados.slice(i, i + PARTE), inicio: i });
+        let r: Response | null = null;
+        let d: any = null;
+        // Uma nova tentativa por parte: sem risco de duplicar, o servidor pula o que já entrou.
+        for (let tentativa = 0; tentativa < 2; tentativa++) {
+          r = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: corpo }).catch(() => null);
+          d = r ? await r.json().catch(() => null) : null;
+          if (r?.ok && d) break;
+        }
+        if (!r?.ok || !d) {
+          setMsg({
+            t: "err",
+            x:
+              `Parou na linha ${fmt(i + 2)}: ${d?.erro || "falha de conexão"}. ${fmt(soma.inseridos)} importado(s) até aqui. ` +
+              "Importe o mesmo arquivo de novo: quem já entrou é pulado.",
+          });
+          router.refresh();
+          return;
+        }
+        soma.inseridos += d.inseridos || 0;
+        soma.duplicados += d.duplicados || 0;
+        soma.ignorados += d.ignorados || 0;
+        soma.falhas += d.falhas || 0;
+        for (const er of d.erros || []) linhasErro.push(er.linha);
       }
+
+      const partes = [`${fmt(soma.inseridos)} de ${fmt(dados.length)} importado(s)`];
+      if (soma.duplicados) partes.push(`${fmt(soma.duplicados)} já existiam (pulados)`);
+      if (soma.ignorados) partes.push(`${fmt(soma.ignorados)} sem nome`);
+      if (soma.falhas)
+        partes.push(
+          `${fmt(soma.falhas)} com erro (linha${soma.falhas > 1 ? "s" : ""} ${linhasErro.slice(0, 5).join(", ")}${soma.falhas > 5 ? "…" : ""})`
+        );
+      setMsg({ t: soma.falhas ? "err" : "ok", x: partes.join(" · ") + "." });
+      router.refresh();
     } catch {
       setMsg({ t: "err", x: "Não consegui ler o arquivo." });
     } finally {
       setImportando(false);
+      setProgresso("");
     }
   }
 
@@ -115,7 +169,7 @@ export default function ImportExport() {
           disabled={importando || sincFotos}
         >
           {importando ? (
-            "Importando…"
+            progresso || "Importando…"
           ) : sincFotos ? (
             "Buscando fotos…"
           ) : (

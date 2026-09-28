@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
-import { getSessao } from "@/lib/auth";
+import { getSessao, PERFIS_GUIA_GABINETE } from "@/lib/auth";
 import { queryOne } from "@/lib/db";
 import AppShell from "../components/AppShell";
 
@@ -17,9 +17,10 @@ export default async function AppLayout({
   // Candidato real (vinculado a um gabinete) no 1º acesso: tela de boas-vindas,
   // uma única vez. Persiste no banco (onboarded, vale nos próximos logins) e usa
   // o cookie para não repetir dentro do mesmo acesso (a flag da sessão só
-  // atualiza no próximo login). Atendente não configura gabinete: sem
-  // boas-vindas nem tour, entra direto na fila.
-  const guiaDoGabinete = !!sessao.escopoCandidato && sessao.perfil !== "ATENDENTE";
+  // atualiza no próximo login). Só para quem configura o gabinete (os mesmos
+  // perfis de /primeiros-passos): atendente, marketing e líder entram direto.
+  const guiaDoGabinete =
+    !!sessao.escopoCandidato && PERFIS_GUIA_GABINETE.includes(sessao.perfil);
   if (guiaDoGabinete && !sessao.onboarded && !cookies().get("onboarding_visto")) {
     redirect("/onboarding");
   }

@@ -2,6 +2,14 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Icon from "../../components/Icon";
+import {
+  ETIQUETAS,
+  FILTRO_IA,
+  ROTULO_IA,
+  alternarEtiqueta,
+  etiquetasValidas,
+  type Etiqueta,
+} from "@/lib/etiquetas";
 
 type Conversa = {
   id: number;
@@ -18,6 +26,9 @@ type Conversa = {
   agente_nome: string | null;
   quando: string;
   nao_lida: boolean;
+  etiquetas?: string[];
+  // Estado real agora: agente ligado e conversa sem pausa (não é etiqueta gravada).
+  ia_respondendo?: boolean;
 };
 type Msg = {
   id: number;
@@ -90,6 +101,8 @@ export default function AtendimentoCliente({ viewInicial }: { viewInicial?: stri
   // olhar um de cada vez.
   const [agentes, setAgentes] = useState<NumeroAgente[]>([]);
   const [agenteFiltro, setAgenteFiltro] = useState<number>(0);
+  // Etiqueta do contato (vai_votar…) ou "ia" = IA respondendo agora.
+  const [etiquetaFiltro, setEtiquetaFiltro] = useState("");
   const [respostas, setRespostas] = useState<{ id: number; atalho: string; texto: string }[]>([]);
   const [gerRapidas, setGerRapidas] = useState(false); // painel de gerenciar (gestor)
   const [botAtivo, setBotAtivo] = useState(false);
@@ -110,6 +123,7 @@ export default function AtendimentoCliente({ viewInicial }: { viewInicial?: stri
     if (busca.trim()) p.set("q", busca.trim());
     if (atendenteFiltro > 0) p.set("atendente", String(atendenteFiltro));
     if (agenteFiltro > 0) p.set("agente", String(agenteFiltro));
+    if (etiquetaFiltro) p.set("etiqueta", etiquetaFiltro);
     const req = ++convReq.current;
     try {
       const r = await fetch(`/api/atendimento?${p}`, { cache: "no-store" });
@@ -123,7 +137,7 @@ export default function AtendimentoCliente({ viewInicial }: { viewInicial?: stri
         setEu(d.eu || null);
       }
     } catch {}
-  }, [view, busca, atendenteFiltro, agenteFiltro]);
+  }, [view, busca, atendenteFiltro, agenteFiltro, etiquetaFiltro]);
 
   const carregarThread = useCallback(async (c: Conversa, forcarFim = false) => {
     const p = new URLSearchParams({ contato: c.contato, agente: String(c.agente_id) });
@@ -352,6 +366,28 @@ export default function AtendimentoCliente({ viewInicial }: { viewInicial?: stri
     await carregarLista();
     await carregarThread(sel);
     return true;
+  }
+
+  // Marca/desmarca na hora (a tela não espera o servidor); se falhar, volta.
+  async function marcarEtiqueta(v: Etiqueta, ligar: boolean) {
+    if (!sel) return;
+    const alvo = sel;
+    const antes = alvo.etiquetas || [];
+    setErro("");
+    setSel({ ...alvo, etiquetas: alternarEtiqueta(antes, v, ligar) });
+    const r = await fetch("/api/atendimento", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ acao: "etiqueta", agente_id: alvo.agente_id, contato: alvo.contato, etiqueta: v, ligar }),
+    }).catch(() => null);
+    const d = r ? await r.json().catch(() => ({})) : {};
+    if (!r || !r.ok) {
+      setSel((s) => (s && s.contato === alvo.contato && s.agente_id === alvo.agente_id ? { ...s, etiquetas: antes } : s));
+      setErro(d.erro || "Não deu para salvar a etiqueta. Tente de novo.");
+      return;
+    }
+    setSel((s) => (s && s.contato === alvo.contato && s.agente_id === alvo.agente_id ? { ...s, etiquetas: d.etiquetas } : s));
+    carregarLista();
   }
 
   async function toggleDisponivel() {
@@ -636,6 +672,18 @@ export default function AtendimentoCliente({ viewInicial }: { viewInicial?: stri
                   ))}
                 </select>
               )}
+              <select
+                className="inbox-busca at-filtro-etiqueta"
+                value={etiquetaFiltro}
+                onChange={(e) => setEtiquetaFiltro(e.target.value)}
+                aria-label="Filtrar por etiqueta"
+              >
+                <option value="">Todas as etiquetas</option>
+                {ETIQUETAS.map((e) => (
+                  <option key={e.v} value={e.v}>{e.rotulo}</option>
+                ))}
+                <option value={FILTRO_IA}>{ROTULO_IA}</option>
+              </select>
             </div>
             {conversas.length === 0 ? (
               <div className="empty empty-sm">Nenhuma conversa nesta lista.</div>
@@ -671,6 +719,10 @@ export default function AtendimentoCliente({ viewInicial }: { viewInicial?: stri
                     </div>
                     <div className="at-conv-sub">
                       <span className="at-conv-atendente">{c.agente_nome}</span>
+                      {c.ia_respondendo && <span className="selo info" title={ROTULO_IA}>IA</span>}
+                      {ETIQUETAS.filter((e) => etiquetasValidas(c.etiquetas).includes(e.v)).map((e) => (
+                        <span key={e.v} className={`selo ${e.tom}`}>{e.rotulo}</span>
+                      ))}
                     </div>
                   </div>
                 </button>
@@ -741,6 +793,33 @@ export default function AtendimentoCliente({ viewInicial }: { viewInicial?: stri
                       <button type="button" className="at-btn" onClick={async () => { if (await acao("transferir", { para: null })) setTransferindo(false); }}>Devolver à fila</button>
                     </div>
                   )}
+                </div>
+
+                {/* Etiquetas do contato (neste candidato) + estado real da IA */}
+                <div className="at-etiquetas" role="group" aria-label="Etiquetas do contato">
+                  {typeof sel.ia_respondendo === "boolean" && (
+                    <span
+                      className={`selo${sel.ia_respondendo ? " info" : ""}`}
+                      title="Automática: a IA responde quando o número está ligado e a conversa não foi pausada."
+                    >
+                      <Icon name="bot" size={12} /> {sel.ia_respondendo ? ROTULO_IA : "IA pausada"}
+                    </span>
+                  )}
+                  {ETIQUETAS.map((e) => {
+                    const on = etiquetasValidas(sel.etiquetas).includes(e.v);
+                    return (
+                      <button
+                        key={e.v}
+                        type="button"
+                        className={`chip etq ${e.tom}${on ? " ativo" : ""}`}
+                        aria-pressed={on}
+                        onClick={() => marcarEtiqueta(e.v, !on)}
+                      >
+                        {on && <Icon name="check" size={12} />}
+                        {e.rotulo}
+                      </button>
+                    );
+                  })}
                 </div>
 
                 <div className="inbox-msgs wa-bg" ref={msgsRef}>

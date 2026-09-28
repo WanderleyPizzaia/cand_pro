@@ -83,6 +83,7 @@ export type Pessoa = {
   lng: number | null;
   criado_por: string | null;
   criado_em: string;
+  etiquetas?: string[];
 };
 
 export type Agente = {
@@ -403,7 +404,7 @@ async function limparDemoAntiga() {
 // aí o próximo boot roda as migrações uma vez e volta a pular. Isto é o que
 // deixa o app rápido: sem o gate, cada lambda fria repetia ~50 comandos DDL +
 // seeds antes da 1ª consulta (o "demora no primeiro clique").
-const SCHEMA_V = "2026-09-28.galeria";
+const SCHEMA_V = "2026-09-28.etiquetas";
 
 async function inicializar() {
   // Gate barato: garante a tabela config e, se o schema já está na versão
@@ -735,6 +736,22 @@ async function inicializar() {
     )`);
   await pool.query(
     `CREATE INDEX IF NOT EXISTS idx_agente_arquivos_agente ON agente_arquivos (agente_id)`
+  );
+  // Etiquetas do contato (lib/etiquetas.ts): vai_votar, nao_vai_votar, retomar.
+  // Ficam no contato DAQUELE candidato (pessoas.agente_id): a mesma pessoa
+  // pode ir votar em um e não no outro. "IA respondendo" não é gravada: sai
+  // do estado real da conversa (lib/etiquetas.ts → SQL_IA_RESPONDENDO).
+  await pool.query(
+    `ALTER TABLE pessoas ADD COLUMN IF NOT EXISTS etiquetas TEXT[] NOT NULL DEFAULT '{}'`
+  );
+  await pool.query(
+    `CREATE INDEX IF NOT EXISTS idx_pessoas_etiquetas ON pessoas USING GIN (etiquetas)`
+  );
+  // A lista de conversas acha o contato pelo número só com dígitos; sem este
+  // índice cada conversa varria a tabela pessoas inteira.
+  await pool.query(
+    `CREATE INDEX IF NOT EXISTS idx_pessoas_whatsapp_digitos
+       ON pessoas ((regexp_replace(COALESCE(whatsapp,''),'\\D','','g')))`
   );
 
   await semearUsuarios();

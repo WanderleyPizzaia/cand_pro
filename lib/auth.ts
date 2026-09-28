@@ -38,6 +38,10 @@ export const ROTULO_PERFIL: Record<Perfil, string> = {
   ATENDENTE: "Atendente",
 };
 
+// Quem vê a tela de boas-vindas ("Configurar meu gabinete") e o tour: só os
+// perfis que abrem /primeiros-passos.
+export const PERFIS_GUIA_GABINETE: Perfil[] = ["CANDIDATO", "COORDENACAO"];
+
 export type Sessao = {
   uid: number;
   nome: string;

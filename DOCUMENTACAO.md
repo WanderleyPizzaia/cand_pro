@@ -180,6 +180,9 @@ execução por `lib/db.ts` (`CREATE TABLE IF NOT EXISTS`, idempotente). Datas em
 
 > Valores de `config` têm **fallback** para variáveis de ambiente de mesmo nome.
 
+`pessoas.etiquetas` (TEXT[], índice GIN) guarda as etiquetas do contato (ver 7.4).
+Índice `idx_pessoas_whatsapp_digitos` acelera achar o contato pelo número.
+
 ### `agente_arquivos` — galeria do agente
 Arquivos que a IA pode mandar (ver 7.7). `nome`, `quando` (situação de envio),
 `legenda`, `tipo` (`imagem`/`documento`), `mime`, `nome_arquivo`, `conteudo`
@@ -284,6 +287,27 @@ editar, excluir com confirmação). Seleção em massa: **adicionar à lista**
 "Planilha" exporta com os filtros atuais, importa CSV e busca fotos do
 WhatsApp. O LIDER vê apenas os próprios cadastros.
 
+**Importação de CSV** (`lib/csv.ts` + `POST /api/pessoas/import`): o navegador
+lê o arquivo (UTF-8, UTF-16 ou Windows-1252, o "CSV" do Excel em português),
+separa com um leitor RFC (aspa só abre campo no começo dele; aspa solta no
+meio do texto não engole as linhas seguintes) e manda em partes de 1.000
+linhas com progresso na tela. O servidor pula o contato que já existe
+naquele candidato (mesmo número, com ou sem o 55; sem número, mesmo nome e
+cidade), então **reimportar a mesma planilha só completa o que faltou**. Lote
+que falha é dividido até isolar as linhas ruins, e o resumo mostra
+importados, já existentes, sem nome e as linhas com erro.
+
+**Etiquetas** (`lib/etiquetas.ts`): **Vai votar**, **Não vai votar** (as duas se
+excluem) e **Retomar contato**, gravadas em `pessoas.etiquetas` no contato
+DAQUELE candidato (a mesma pessoa pode votar em um e não no outro). Marcadas no
+topo da conversa do Atendimento (`POST /api/atendimento`, `acao: "etiqueta"`;
+cria o contato se a IA ainda não cadastrou) ou no painel do contato
+(`POST /api/pessoas/etiqueta`, com o mesmo escopo da lista). Aparecem como
+chips na lista de conversas e na tabela de Contatos, com filtro nos dois e
+coluna na planilha. **IA respondendo** não é gravada: é o estado real da
+conversa (agente ligado e sem pausa valendo, `SQL_IA_RESPONDENDO` em
+`lib/atendimento.ts`, mesma regra de `estaPausado`) e também filtra a lista.
+
 ### 7.5 Formulário público de captação (`/form/[slug]`) — público
 `slug` = e-mail/usuário de um líder. Quem preenche **não precisa de login**; o
 eleitor entra com `criado_por = id do líder` (isolamento automático). Usado nos
@@ -311,7 +335,7 @@ liga/desliga (responder automático) e métricas (mensagens totais, recebidas
 hoje). Mostra a **URL do webhook** para colar na Evolution. Funciona em "modo
 pendente" até as chaves (Evolution + Claude) estarem configuradas.
 
-**Galeria do agente** (em Ajustes, e em Meu agente para o candidato): arquivos
+**Galeria do agente** (botão "Santinho e arquivos" no cartão, e em Meu agente para o candidato): arquivos
 prontos que a IA pode mandar no WhatsApp, como santinho (imagem) e plano de
 governo (PDF). Cada arquivo tem nome, **situação em que deve ser enviado**
 (texto livre que vai para a IA) e legenda opcional. Aceita JPG, PNG ou
@@ -430,6 +454,7 @@ Todas em `force-dynamic`. Salvo indicação, exigem sessão.
 | `/api/busca` | GET | Busca global de contatos (`?q=`), no escopo da sessão |
 | `/api/listas/membros` | POST | Adiciona contatos selecionados a uma lista `{lista_id, pessoa_ids}` |
 | `/api/galeria` | GET, POST | Galeria do agente (gestor com `?id=`, candidato no próprio). POST `acao`: `ligar`, `adicionar`, `editar`, `excluir`, `testar` |
+| `/api/pessoas/etiqueta` | POST | Marca/desmarca etiqueta no contato `{id, etiqueta, ligar}` (escopo da lista) |
 | `/api/galeria/[id]` | GET | O arquivo em si (miniatura e bolha da conversa), para quem vê aquele número |
 
 ---

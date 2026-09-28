@@ -7,6 +7,7 @@ import FiltrosContatos from "./FiltrosContatos";
 import TabelaContatos, { type LinhaContato } from "./TabelaContatos";
 import Icon from "../../components/Icon";
 import { agentesDaSessao } from "@/lib/escopo";
+import { ETIQUETAS, ehEtiqueta, etiquetasValidas } from "@/lib/etiquetas";
 
 export const dynamic = "force-dynamic";
 
@@ -35,6 +36,7 @@ export default async function PessoasPage({
     q?: string;
     categoria?: string;
     cidade?: string;
+    etiqueta?: string;
     abrir?: string;
   };
 }) {
@@ -43,6 +45,7 @@ export default async function PessoasPage({
   const candFiltro = searchParams.candidato || "";
   const catFiltro = (searchParams.categoria || "").trim();
   const cidFiltro = (searchParams.cidade || "").trim();
+  const etqFiltro = ehEtiqueta(searchParams.etiqueta) ? searchParams.etiqueta : "";
   const busca = (searchParams.q || "").trim();
   const page = Math.max(1, parseInt(searchParams.page || "1") || 1);
   const offset = (page - 1) * POR_PAGINA;
@@ -83,6 +86,15 @@ export default async function PessoasPage({
       GROUP BY 1 ORDER BY total DESC LIMIT 60`,
     escopoParams
   );
+  const contagemEtiquetas = await query<{ v: string; total: number }>(
+    `SELECT e v, count(*)::int total FROM pessoas p, unnest(p.etiquetas) e ${escopoSql} GROUP BY 1`,
+    escopoParams
+  );
+  const etiquetas = ETIQUETAS.map((e) => ({
+    v: e.v,
+    rotulo: e.rotulo,
+    total: contagemEtiquetas.find((c) => c.v === e.v)?.total ?? 0,
+  }));
 
   const wheres = [...escopo];
   const params = [...escopoParams];
@@ -97,6 +109,10 @@ export default async function PessoasPage({
   if (cidFiltro) {
     params.push(cidFiltro);
     wheres.push(`p.cidade = $${params.length}`);
+  }
+  if (etqFiltro) {
+    params.push(etqFiltro);
+    wheres.push(`p.etiquetas @> ARRAY[$${params.length}]::text[]`);
   }
   // Busca por nome, cargo, cidade, categoria, email ou número
   // (o número ignora espaços/traços: compara só os dígitos).
@@ -147,14 +163,16 @@ export default async function PessoasPage({
     agenteId: p.agente_id ?? null,
     autor: p.autor,
     criadoEm: p.criado_em,
+    etiquetas: etiquetasValidas(p.etiquetas),
   }));
 
-  const filtrando = !!(busca || candFiltro || catFiltro || cidFiltro);
+  const filtrando = !!(busca || candFiltro || catFiltro || cidFiltro || etqFiltro);
   const link = (pg: number) => {
     const sp = new URLSearchParams();
     if (candFiltro) sp.set("candidato", candFiltro);
     if (catFiltro) sp.set("categoria", catFiltro);
     if (cidFiltro) sp.set("cidade", cidFiltro);
+    if (etqFiltro) sp.set("etiqueta", etqFiltro);
     if (busca) sp.set("q", busca);
     if (pg > 1) sp.set("page", String(pg));
     const s = sp.toString();
@@ -188,6 +206,7 @@ export default async function PessoasPage({
         <FiltrosContatos
           categorias={categorias}
           cidades={cidades}
+          etiquetas={etiquetas}
           candidatos={candidatos.map((c) => ({ v: String(c.id), rotulo: c.candidato, total: c.total }))}
         />
       </div>
