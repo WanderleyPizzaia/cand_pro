@@ -96,7 +96,8 @@ export default function CommandPalette({
   useEffect(() => {
     if (!aberto) return;
     const termo = q.trim();
-    if (termo.length < 2) {
+    // Atendente não consulta a base de contatos (só as conversas dele).
+    if (termo.length < 2 || perfil === "ATENDENTE") {
       setContatos([]);
       return;
     }
@@ -120,7 +121,7 @@ export default function CommandPalette({
       clearTimeout(t);
       ctrl.abort();
     };
-  }, [q, aberto]);
+  }, [q, aberto, perfil]);
 
   const resultados = useMemo(() => {
     const termo = norm(q.trim());

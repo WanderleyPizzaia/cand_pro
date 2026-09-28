@@ -22,9 +22,41 @@ const PUBLICAS = [
   "/api/agente/responder",
 ];
 
+// Atendente só trabalha no Atendimento. Tudo fora desta lista volta para a
+// fila (telas) ou é negado (APIs), inclusive telas e rotas criadas no futuro.
+const ATENDENTE_TELAS = ["/atendimento", "/conta"];
+const ATENDENTE_APIS = [
+  "/api/atendimento",
+  "/api/respostas",
+  "/api/notificacoes",
+  "/api/contadores",
+  "/api/conta/",
+  "/api/auth/",
+  "/api/onboarded",
+  // Só o arquivo em si (imagem/PDF mandado na conversa), não a gestão da galeria.
+  "/api/galeria/",
+];
+
+// Perfil gravado no cookie. A assinatura NÃO é conferida aqui (o middleware
+// roda no edge, sem o segredo): é conferida no servidor em toda tela e rota.
+// Serve só para NEGAR: quem altera o perfil do cookie para fugir desta trava
+// quebra a assinatura e é recusado lá.
+function perfilDoCookie(valor: string): string | null {
+  try {
+    const b64 = valor.split(".")[0].replace(/-/g, "+").replace(/_/g, "/");
+    return JSON.parse(atob(b64))?.perfil ?? null;
+  } catch {
+    return null;
+  }
+}
+
+const casa = (pathname: string, lista: string[]) =>
+  lista.some((p) => pathname === p || pathname.startsWith(p.endsWith("/") ? p : p + "/"));
+
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
-  const temCookie = !!req.cookies.get("sessao")?.value;
+  const cookie = req.cookies.get("sessao")?.value;
+  const temCookie = !!cookie;
 
   const ehPublica = PUBLICAS.some((p) => pathname.startsWith(p));
 
@@ -38,6 +70,18 @@ export function middleware(req: NextRequest) {
     const url = req.nextUrl.clone();
     url.pathname = "/";
     return NextResponse.redirect(url);
+  }
+
+  if (cookie && !ehPublica && perfilDoCookie(cookie) === "ATENDENTE") {
+    if (pathname.startsWith("/api/")) {
+      if (!casa(pathname, ATENDENTE_APIS))
+        return NextResponse.json({ erro: "Acesso negado" }, { status: 403 });
+    } else if (!casa(pathname, ATENDENTE_TELAS)) {
+      const url = req.nextUrl.clone();
+      url.pathname = "/atendimento";
+      url.search = "";
+      return NextResponse.redirect(url);
+    }
   }
 
   return NextResponse.next();
