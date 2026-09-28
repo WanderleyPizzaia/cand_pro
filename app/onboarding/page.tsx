@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { getSessao } from "@/lib/auth";
+import { getSessao, PERFIS_GUIA_GABINETE } from "@/lib/auth";
 import { queryOne } from "@/lib/db";
 import OnboardingCliente from "./OnboardingCliente";
 
@@ -10,7 +10,8 @@ export const dynamic = "force-dynamic";
 export default async function OnboardingPage() {
   const sessao = getSessao();
   if (!sessao) redirect("/login");
-  if (!sessao.escopoCandidato || sessao.onboarded || sessao.perfil === "ATENDENTE") redirect("/");
+  if (!sessao.escopoCandidato || sessao.onboarded || !PERFIS_GUIA_GABINETE.includes(sessao.perfil))
+    redirect("/");
 
   const primeiroNome = sessao.nome.split(" ")[0];
 
