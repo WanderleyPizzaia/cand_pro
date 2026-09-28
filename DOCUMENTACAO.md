@@ -499,6 +499,15 @@ O schema e o seed são criados automaticamente no primeiro acesso ao banco.
 - Integrações guardadas em `config` e **nunca** exibidas de volta na tela.
 - Proteções na gestão de usuários (sem auto-exclusão / sem remover o último
   admin).
+- **Isolamento entre candidatos:** toda rota que lê ou altera contatos passa por
+  `resolverEscopoAtual` + `filtroPessoas`. Isso vale para editar e excluir
+  contato (`PATCH`/`DELETE /api/pessoas`, que devolvem 404 fora do escopo), para os
+  destinatários de disparo (`/api/campanhas`: filtro por cidade/categoria, envio
+  pontual por contato e número digitado) e para a prévia/busca
+  (`/api/campanhas/preview`). Um contato cadastrado à mão por usuário vinculado
+  nasce no número (agente) dele, e um número digitado no disparo que pertence a
+  outro candidato vira um contato novo do candidato que dispara, sem reaproveitar o
+  do outro. Admin e coordenação global continuam vendo tudo.
 - **Pendência recomendada:** definir `AUTH_SECRET` próprio em produção e revisar
   permissões de visibilidade do Google Calendar.
 

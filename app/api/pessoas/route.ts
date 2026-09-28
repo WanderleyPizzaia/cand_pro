@@ -63,10 +63,16 @@ export async function POST(req: NextRequest) {
   // "Qual?" só faz sentido quando a função é "Outro".
   const funcaoOutro = b.funcao === "Outro" ? (b.funcao_outro || "").toString().trim() || null : null;
 
+  // Nasce no número (candidato) de quem cadastra, como na importação. Sem
+  // isto a equipe vinculada cadastrava e o contato sumia da própria lista,
+  // que só mostra os contatos dos seus números. Admin: sem vínculo.
+  const esc = await resolverEscopoAtual(sessao);
+  const agenteId = esc.agenteIds?.find((x) => x > 0) ?? null;
+
   const novo = await queryOne<{ id: number }>(
     `INSERT INTO pessoas
-        (nome, categoria, funcao, funcao_outro, partido, cidade, regiao, bairro, whatsapp, email, instagram, observacao, foto, lat, lng, criado_por)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+        (nome, categoria, funcao, funcao_outro, partido, cidade, regiao, bairro, whatsapp, email, instagram, observacao, foto, lat, lng, criado_por, agente_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
        RETURNING id`,
     [
       nome,
@@ -85,6 +91,7 @@ export async function POST(req: NextRequest) {
       lat,
       lng,
       String(sessao.uid),
+      agenteId,
     ]
   );
 
@@ -141,8 +148,15 @@ export async function PATCH(req: NextRequest) {
   if (sets.length === 0)
     return NextResponse.json({ erro: "Nada para atualizar." }, { status: 400 });
 
+  // Só edita contato do escopo da sessão (líder: os que cadastrou; equipe
+  // vinculada: os dos seus números). Fora dele responde como inexistente.
+  const esc = await resolverEscopoAtual(sessao);
   vals.push(id);
-  await execute(`UPDATE pessoas SET ${sets.join(", ")} WHERE id = $${i}`, vals);
+  const n = await execute(
+    `UPDATE pessoas SET ${sets.join(", ")} WHERE id = $${i} ${filtroPessoas(esc, "")}`,
+    vals
+  );
+  if (!n) return NextResponse.json({ erro: "Contato não encontrado." }, { status: 404 });
   return NextResponse.json({ ok: true });
 }
 
@@ -152,6 +166,9 @@ export async function DELETE(req: NextRequest) {
   if (!sessao) return NextResponse.json({ erro: "Sem sessão" }, { status: 401 });
   const id = Number(new URL(req.url).searchParams.get("id"));
   if (!id) return NextResponse.json({ erro: "ID inválido" }, { status: 400 });
-  await execute("DELETE FROM pessoas WHERE id = $1", [id]);
+  // Mesmo escopo da lista: ninguém apaga contato de outro candidato.
+  const esc = await resolverEscopoAtual(sessao);
+  const n = await execute(`DELETE FROM pessoas WHERE id = $1 ${filtroPessoas(esc, "")}`, [id]);
+  if (!n) return NextResponse.json({ erro: "Contato não encontrado." }, { status: 404 });
   return NextResponse.json({ ok: true });
 }

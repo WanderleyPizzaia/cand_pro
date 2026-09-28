@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query, queryOne } from "@/lib/db";
 import { getSessao } from "@/lib/auth";
+import { resolverEscopoAtual, filtroPessoas } from "@/lib/escopo";
 
 export const dynamic = "force-dynamic";
 
@@ -15,13 +16,15 @@ export async function POST(req: NextRequest) {
   const cidade = (b.cidade ?? "").toString().trim();
   const categoria = (b.categoria ?? "").toString().trim();
   const busca = (b.busca ?? "").toString().trim();
+  // Mesmo escopo do envio: a prévia e a busca não mostram a base de outro candidato.
+  const esc = filtroPessoas(await resolverEscopoAtual(s), "");
 
   // Envio pontual: busca um contato específico já cadastrado (por nome ou número).
   if (busca) {
     const contatos = await query<{ id: number; nome: string; whatsapp: string; cidade: string }>(
       `SELECT id, nome, whatsapp, cidade FROM pessoas
         WHERE whatsapp IS NOT NULL AND whatsapp <> ''
-          AND (nome ILIKE $1 OR whatsapp ILIKE $1)
+          AND (nome ILIKE $1 OR whatsapp ILIKE $1) ${esc}
         ORDER BY nome LIMIT 8`,
       [`%${busca}%`]
     );
@@ -29,7 +32,7 @@ export async function POST(req: NextRequest) {
   }
 
   const params: any[] = [];
-  let where = "whatsapp IS NOT NULL AND whatsapp <> ''";
+  let where = `whatsapp IS NOT NULL AND whatsapp <> '' ${esc}`;
   if (cidade) {
     params.push(cidade);
     where += ` AND cidade = $${params.length}`;
