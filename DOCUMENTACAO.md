@@ -288,9 +288,16 @@ editar, excluir com confirmação). Seleção em massa: **adicionar à lista**
 WhatsApp. O LIDER vê apenas os próprios cadastros.
 
 **Importação de CSV** (`lib/csv.ts` + `POST /api/pessoas/import`): o navegador
-lê o arquivo (UTF-8, UTF-16 ou Windows-1252, o "CSV" do Excel em português),
-separa com um leitor RFC (aspa só abre campo no começo dele; aspa solta no
-meio do texto não engole as linhas seguintes) e manda em partes de 1.000
+lê o arquivo (UTF-8, UTF-16 ou Windows-1252, o "CSV" do Excel em português,
+decidido linha a linha para planilhas que misturam os dois), acha o
+delimitador (`;`, `,`, TAB ou a linha `sep=;`) e o cabeçalho, que pode vir
+depois de um título. A coluna do nome aceita variações ("Nome Completo",
+"Nome do eleitor", os cabeçalhos do Google Contatos e do Outlook, com o
+sobrenome juntado ao nome). Com várias colunas de telefone, vale WhatsApp >
+celular > telefone. Sem coluna de nome, a tela lista as colunas que leu, e
+`.xlsx` pede para salvar como CSV. O leitor é RFC (aspa só abre campo no
+começo dele; aspa solta no meio do texto não engole as linhas seguintes) e
+manda em partes de 1.000
 linhas com progresso na tela. O servidor pula o contato que já existe
 naquele candidato (mesmo número, com ou sem o 55; sem número, mesmo nome e
 cidade), então **reimportar a mesma planilha só completa o que faltou**. Lote

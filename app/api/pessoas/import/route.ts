@@ -4,7 +4,7 @@ import { getSessao } from "@/lib/auth";
 import { buscarCidade } from "@/lib/cidades";
 import { regiaoMaisProxima } from "@/lib/opcoes";
 import { agentesDaSessao } from "@/lib/escopo";
-import { parseCSV, detectarDelimitador, mapearCabecalho } from "@/lib/csv";
+import { parseCSV, detectarDelimitador, mapearCabecalho, acharCabecalho, registroDaLinha } from "@/lib/csv";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -77,10 +77,12 @@ export async function POST(req: NextRequest) {
     const texto = await req.text();
     if (!texto.trim()) return NextResponse.json({ erro: "Arquivo vazio." }, { status: 400 });
     const todas = parseCSV(texto, detectarDelimitador(texto));
-    if (todas.length < 2)
+    const h = Math.max(0, acharCabecalho(todas));
+    if (todas.length < h + 2)
       return NextResponse.json({ erro: "CSV sem dados (precisa de cabeçalho + linhas)." }, { status: 400 });
-    cabecalhoBruto = todas[0];
-    dados = todas.slice(1);
+    cabecalhoBruto = todas[h];
+    dados = todas.slice(h + 1);
+    inicio = h;
   }
   if (dados.length > MAX_POR_PARTE)
     return NextResponse.json(
@@ -90,7 +92,10 @@ export async function POST(req: NextRequest) {
 
   const cabecalho = mapearCabecalho(cabecalhoBruto);
   if (!cabecalho.includes("nome"))
-    return NextResponse.json({ erro: 'O CSV precisa de uma coluna "nome".' }, { status: 400 });
+    return NextResponse.json(
+      { erro: `Não achei a coluna do nome. Colunas lidas: ${cabecalhoBruto.slice(0, 8).map((c) => `"${c}"`).join(", ")}.` },
+      { status: 400 }
+    );
 
   // Número (agente) a vincular. Sem vínculo, o candidato NÃO vê os contatos
   // (a visão dele filtra por agente_id). Regra:
@@ -111,11 +116,8 @@ export async function POST(req: NextRequest) {
   let ignorados = 0;
   const candidatas: (Linha & { chave: string })[] = [];
   dados.forEach((linha, idx) => {
-    const reg: Record<string, string> = {};
-    cabecalho.forEach((campo, i) => {
-      if (campo) reg[campo] = (linha[i] ?? "").trim();
-    });
-    const nome = (reg.nome ?? "").trim();
+    const reg = registroDaLinha(cabecalho, linha);
+    const nome = reg.nome ?? "";
     if (!nome) {
       ignorados++;
       return;
