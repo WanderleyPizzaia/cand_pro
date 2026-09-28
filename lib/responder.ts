@@ -12,6 +12,16 @@ import {
 } from "./evolution";
 import { enviarTextoMeta, enviarTypingMeta } from "./meta";
 import { vozDoAgente, sintetizarVoz } from "./voz";
+import {
+  galeriaLigada,
+  listarArquivos,
+  enviadosHoje,
+  instrucoesGaleria,
+  extrairMarcador,
+  resolverArquivo,
+  enviarArquivoDaGaleria,
+  type ArquivoGaleria,
+} from "./galeria";
 
 const dormir = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -106,20 +116,46 @@ export async function responderIA(
     }
   }
 
+  // Galeria: com "Enviar material de campanha" ligado, a IA recebe a lista de
+  // arquivos e pode pedir um. Falha aqui não pode calar a IA: segue sem galeria.
+  let galeria: ArquivoGaleria[] = [];
+  let extra = "";
+  if (galeriaLigada(agente)) {
+    try {
+      galeria = await listarArquivos(agente.id);
+      if (galeria.length) extra = instrucoesGaleria(galeria, await enviadosHoje(agente.id, numero));
+    } catch (e) {
+      console.error("[galeria] lista", e);
+      galeria = [];
+    }
+  }
+
   const resposta = await gerarResposta(
     agente.id,
     agente.persona || "",
     numero,
     agente.ia_key,
-    limites
+    limites,
+    extra
   );
-  if (!resposta.ok || !resposta.texto) {
+  // O marcador sai do texto sempre (mesmo com a galeria desligada: nunca vaza).
+  const { texto, alvo } = extrairMarcador(resposta.texto || "");
+  const arquivo = resolverArquivo(alvo, galeria);
+  if (!resposta.ok || (!texto && !arquivo)) {
     await execute(
       "INSERT INTO mensagens (agente_id, contato, contato_nome, direcao, texto) VALUES ($1, $2, $3, 'erro', $4)",
       [agente.id, numero, nome, resposta.erro || "Falha ao gerar resposta"]
     );
     return { ok: false, enviados: 0, erro: resposta.erro || "Falha ao gerar resposta" };
   }
+
+  // O arquivo vai depois do texto (ou sozinho, se a IA só mandou o marcador).
+  const mandarArquivo = async (): Promise<number> => {
+    if (!arquivo) return 0;
+    const f = await enviarArquivoDaGaleria(agente, numero, nome, arquivo.id);
+    if (!f.ok && f.erro !== "reenvio_limite") console.error("[galeria] envio", f.erro);
+    return f.ok ? 1 : 0;
+  };
 
   // ── Atraso humano inicial ("pensando") antes de começar a responder ──
   // Config RESPOSTA_ATRASO_SEG = "8-12" (Evolution). Mostra "digitando" no meio.
@@ -140,16 +176,16 @@ export async function responderIA(
   // ── Resposta em ÁUDIO (voz clonada via ElevenLabs) ──
   // Só quando o agente é Evolution e tem voz configurada (VOZ:<id> + chave global).
   // Envia UM áudio com a resposta completa; se falhar, cai no texto (degradação).
-  if (!ehMeta) {
+  if (!ehMeta && texto) {
     const voz = await vozDoAgente(agente.id);
     const deveAudio = !!voz && (voz.modo === "sempre" || (voz.modo === "quando_audio" && !!opts.entradaAudio));
     if (voz && deveAudio) {
       const apiKey = await getConfig("ELEVENLABS_API_KEY");
       if (apiKey) {
         const num = normalizarNumero(numero);
-        const espera = Math.min(6000, Math.max(1500, atrasoDigitando(resposta.texto)));
+        const espera = Math.min(6000, Math.max(1500, atrasoDigitando(texto)));
         await enviarPresenca(agente.instancia || "", num, agente.apikey, "recording", espera);
-        const tts = await sintetizarVoz(resposta.texto, voz.voiceId, apiKey);
+        const tts = await sintetizarVoz(texto, voz.voiceId, apiKey);
         if (tts.ok && tts.base64) {
           await dormir(espera);
           const a = await enviarAudioEvolution(agente.instancia || "", num, tts.base64, agente.apikey);
@@ -161,19 +197,22 @@ export async function responderIA(
               numero,
               nome,
               a.ok ? "out" : "erro",
-              a.ok ? "🎙️ " + resposta.texto.slice(0, 400) : `Falha no áudio: ${a.erro}`,
+              a.ok ? "🎙️ " + texto.slice(0, 400) : `Falha no áudio: ${a.erro}`,
               a.waId || null,
               a.ok ? "sent" : null,
             ]
           );
-          if (a.ok) return { ok: true, enviados: 1 };
+          if (a.ok) {
+            if (arquivo) await dormir(pausaEntreBolhas());
+            return { ok: true, enviados: 1 + (await mandarArquivo()) };
+          }
           // áudio falhou: segue para o texto abaixo (não deixa o eleitor sem resposta)
         }
       }
     }
   }
 
-  const partes = dividirEmMensagens(resposta.texto);
+  const partes = dividirEmMensagens(texto);
   let enviados = 0;
 
   for (let idx = 0; idx < partes.length; idx++) {
@@ -219,6 +258,12 @@ export async function responderIA(
     );
     if (!envio.ok) break; // conexão caiu: não insiste nas próximas bolhas
     enviados++;
+  }
+
+  // Arquivo pedido pela IA: só se o texto saiu inteiro (conexão caída não insiste).
+  if (arquivo && enviados === partes.length) {
+    if (enviados > 0) await dormir(pausaEntreBolhas());
+    enviados += await mandarArquivo();
   }
 
   return { ok: enviados > 0, enviados };

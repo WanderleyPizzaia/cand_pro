@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import Icon from "../../components/Icon";
 
 type Agente = { id: number; candidato: string };
 
@@ -477,6 +478,10 @@ export default function InboxCliente({
                         </a>
                         {m.texto && m.texto !== "🖼️ Imagem" && <div className="bolha-txt" style={{ marginTop: 4 }}>{m.texto}</div>}
                       </>
+                    ) : m.media && m.media_tipo === "documento" ? (
+                      <a className="bolha-doc" href={m.media} target="_blank" rel="noreferrer">
+                        <Icon name="file-text" size={16} /> {(m.texto || "Documento").replace(/^📎\s*/, "")}
+                      </a>
                     ) : (
                       <div className="bolha-txt">{m.texto}</div>
                     )}

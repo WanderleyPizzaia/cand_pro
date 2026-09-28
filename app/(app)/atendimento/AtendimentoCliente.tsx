@@ -756,6 +756,10 @@ export default function AtendimentoCliente({ viewInicial }: { viewInicial?: stri
                           </a>
                           {m.texto && m.texto !== "🖼️ Imagem" && <div className="bolha-txt bolha-legenda">{m.texto}</div>}
                         </>
+                      ) : m.media && m.media_tipo === "documento" ? (
+                        <a className="bolha-doc" href={m.media} target="_blank" rel="noreferrer">
+                          <Icon name="file-text" size={16} /> {(m.texto || "Documento").replace(/^📎\s*/, "")}
+                        </a>
                       ) : (
                         <div className="bolha-txt">{m.texto}</div>
                       )}

@@ -92,9 +92,18 @@ export async function POST(req: NextRequest) {
     vals.push(b.ativo ? 1 : 0);
   }
   // Config variável (ferramentas/atendimento). Merge no JSONB existente.
+  // As ferramentas entram chave a chave, e `enviar_material` fica de fora: quem
+  // liga e desliga é a galeria (/api/galeria), e esta tela gravaria o valor
+  // antigo que carregou.
   if (b.config && typeof b.config === "object") {
-    sets.push(`config = COALESCE(config,'{}'::jsonb) || $${i++}::jsonb`);
-    vals.push(JSON.stringify(b.config));
+    const { ferramentas, ...resto } = b.config as Record<string, any>;
+    const ferr = ferramentas && typeof ferramentas === "object" ? { ...ferramentas } : {};
+    delete ferr.enviar_material;
+    sets.push(
+      `config = (COALESCE(config,'{}'::jsonb) || $${i++}::jsonb)
+         || jsonb_build_object('ferramentas', COALESCE(config->'ferramentas','{}'::jsonb) || $${i++}::jsonb)`
+    );
+    vals.push(JSON.stringify(resto), JSON.stringify(ferr));
   }
   if (!sets.length)
     return NextResponse.json({ erro: "Nada para atualizar." }, { status: 400 });

@@ -403,7 +403,7 @@ async function limparDemoAntiga() {
 // aí o próximo boot roda as migrações uma vez e volta a pular. Isto é o que
 // deixa o app rápido: sem o gate, cada lambda fria repetia ~50 comandos DDL +
 // seeds antes da 1ª consulta (o "demora no primeiro clique").
-const SCHEMA_V = "2026-09-20.comando-ia";
+const SCHEMA_V = "2026-09-28.galeria";
 
 async function inicializar() {
   // Gate barato: garante a tabela config e, se o schema já está na versão
@@ -712,6 +712,30 @@ async function inicializar() {
       janela_inicio TIMESTAMPTZ NOT NULL DEFAULT now(),
       bloqueado_ate TIMESTAMPTZ
     )`);
+  // Galeria do agente: arquivos que a IA pode mandar na conversa (santinho,
+  // plano de governo). Em base64 no banco, como as outras mídias do sistema
+  // (sem storage externo), ou apontando para um link público do arquivo.
+  // Só vão para o eleitor com config.ferramentas.enviar_material ligado.
+  // Excluir só marca removido_em: a conversa antiga continua mostrando o que foi.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS agente_arquivos (
+      id           BIGSERIAL PRIMARY KEY,
+      agente_id    BIGINT NOT NULL REFERENCES agentes(id) ON DELETE CASCADE,
+      nome         TEXT NOT NULL,
+      quando       TEXT NOT NULL,
+      legenda      TEXT,
+      tipo         TEXT NOT NULL,
+      mime         TEXT NOT NULL,
+      nome_arquivo TEXT,
+      conteudo     TEXT,
+      url          TEXT,
+      tamanho      INTEGER,
+      criado_em    TIMESTAMPTZ NOT NULL DEFAULT now(),
+      removido_em  TIMESTAMPTZ
+    )`);
+  await pool.query(
+    `CREATE INDEX IF NOT EXISTS idx_agente_arquivos_agente ON agente_arquivos (agente_id)`
+  );
 
   await semearUsuarios();
 

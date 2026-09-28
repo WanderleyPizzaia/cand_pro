@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import CountUp from "../../components/CountUp";
 import TreinarAgente from "./TreinarAgente";
+import GaleriaAgente from "../../components/GaleriaAgente";
 
 type Config = {
   ferramentas?: Record<string, boolean>;
@@ -32,7 +33,6 @@ const FERRAMENTAS: { chave: string; nome: string; desc: string }[] = [
   { chave: "cadastrar_eleitor", nome: "Cadastrar eleitor no mapa", desc: "Cria o cadastro geolocalizado automaticamente na conversa." },
   { chave: "registrar_demanda", nome: "Registrar demanda", desc: "Abre uma tarefa quando o eleitor pede algo (saúde, obra, etc.)." },
   { chave: "agendar_visita", nome: "Agendar visita / evento", desc: "Anota convites e pedidos de agenda para a equipe." },
-  { chave: "enviar_material", nome: "Enviar material de campanha", desc: "Manda material quando o eleitor pede para divulgar." },
   { chave: "transferir_humano", nome: "Transferir para humano", desc: "Pausa a IA e avisa a equipe para assumir a conversa." },
   { chave: "avisar_equipe", nome: "Avisar a equipe", desc: "Notifica no WhatsApp abaixo quando algo importante acontece." },
 ];
@@ -193,6 +193,9 @@ export default function MeuAgenteCliente() {
 
           {/* Treine seu agente: entrevista guiada + áudio + chat de teste */}
           <TreinarAgente onPersona={(p) => setPersona(p)} />
+
+          {/* Material de campanha que a IA pode mandar (santinho, plano de governo) */}
+          <GaleriaAgente />
 
           {/* Ferramentas — o que o assistente pode fazer sozinho */}
           <div className="bloco-agente">
