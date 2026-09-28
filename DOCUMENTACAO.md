@@ -287,6 +287,16 @@ editar, excluir com confirmação). Seleção em massa: **adicionar à lista**
 "Planilha" exporta com os filtros atuais, importa CSV e busca fotos do
 WhatsApp. O LIDER vê apenas os próprios cadastros.
 
+**Importação de CSV** (`lib/csv.ts` + `POST /api/pessoas/import`): o navegador
+lê o arquivo (UTF-8, UTF-16 ou Windows-1252, o "CSV" do Excel em português),
+separa com um leitor RFC (aspa só abre campo no começo dele; aspa solta no
+meio do texto não engole as linhas seguintes) e manda em partes de 1.000
+linhas com progresso na tela. O servidor pula o contato que já existe
+naquele candidato (mesmo número, com ou sem o 55; sem número, mesmo nome e
+cidade), então **reimportar a mesma planilha só completa o que faltou**. Lote
+que falha é dividido até isolar as linhas ruins, e o resumo mostra
+importados, já existentes, sem nome e as linhas com erro.
+
 **Etiquetas** (`lib/etiquetas.ts`): **Vai votar**, **Não vai votar** (as duas se
 excluem) e **Retomar contato**, gravadas em `pessoas.etiquetas` no contato
 DAQUELE candidato (a mesma pessoa pode votar em um e não no outro). Marcadas no
