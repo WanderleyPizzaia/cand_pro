@@ -10,10 +10,12 @@ type Opcao = { v: string; total: number; rotulo?: string };
 export default function FiltrosContatos({
   categorias,
   cidades,
+  etiquetas,
   candidatos,
 }: {
   categorias: Opcao[];
   cidades: Opcao[];
+  etiquetas: Opcao[];
   candidatos: Opcao[];
 }) {
   const router = useRouter();
@@ -28,7 +30,7 @@ export default function FiltrosContatos({
     router.replace("/pessoas" + (sp.toString() ? "?" + sp.toString() : ""));
   }
 
-  const ativos = ["categoria", "cidade", "candidato"].filter((k) => params.get(k));
+  const ativos = ["categoria", "cidade", "etiqueta", "candidato"].filter((k) => params.get(k));
 
   const seletor = (chave: string, rotulo: string, opcoes: Opcao[]) => {
     if (!opcoes.length) return null;
@@ -52,6 +54,7 @@ export default function FiltrosContatos({
     <div className="ct-filtros">
       {seletor("categoria", "Categoria", categorias)}
       {seletor("cidade", "Cidade", cidades)}
+      {seletor("etiqueta", "Etiqueta", etiquetas)}
       {seletor("candidato", "Candidato", candidatos)}
       {ativos.length > 0 && (
         <button
@@ -59,7 +62,7 @@ export default function FiltrosContatos({
           className="btn btn-sm btn-ghost"
           onClick={() => {
             const sp = new URLSearchParams(Array.from(params.entries()));
-            ["categoria", "cidade", "candidato", "page", "abrir"].forEach((k) => sp.delete(k));
+            ["categoria", "cidade", "etiqueta", "candidato", "page", "abrir"].forEach((k) => sp.delete(k));
             router.replace("/pessoas" + (sp.toString() ? "?" + sp.toString() : ""));
           }}
         >

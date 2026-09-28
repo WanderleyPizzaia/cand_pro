@@ -3,7 +3,16 @@ import { query, queryOne, execute, Agente } from "@/lib/db";
 import { getSessao } from "@/lib/auth";
 import { getConfig } from "@/lib/config";
 import { enviarMensagemAgente, enviarAudioAgente, enviarImagemAgente } from "@/lib/meta";
-import { pausar, contemComando, alternar } from "@/lib/atendimento";
+import {
+  pausar,
+  contemComando,
+  alternar,
+  SQL_IA_RESPONDENDO,
+  SQL_JOIN_ETIQUETAS,
+  gravarEtiqueta,
+} from "@/lib/atendimento";
+import { ehEtiqueta, opostaDe, etiquetasValidas, FILTRO_IA } from "@/lib/etiquetas";
+import { garantirContato } from "@/lib/eleitores";
 import { agentesDaSessao } from "@/lib/escopo";
 import {
   assumir,
@@ -96,10 +105,13 @@ export async function GET(req: NextRequest) {
     );
     const cab = await queryOne(
       `SELECT at.id, at.agente_id, at.contato, at.status, at.atendente_id,
-              u.nome AS atendente_nome, ag.candidato AS agente_nome
+              u.nome AS atendente_nome, ag.candidato AS agente_nome,
+              COALESCE(et.etiquetas, '{}') AS etiquetas,
+              ${SQL_IA_RESPONDENDO} AS ia_respondendo
          FROM atendimentos at
          LEFT JOIN usuarios u ON u.id = at.atendente_id
          LEFT JOIN agentes ag ON ag.id = at.agente_id
+         ${SQL_JOIN_ETIQUETAS}
         WHERE at.contato = $1 ${agenteQ ? "AND at.agente_id = $2" : ""}${escSQL(esc, "at.agente_id")}
         LIMIT 1`,
       agenteQ ? [contato, agenteQ] : [contato]
@@ -148,6 +160,16 @@ export async function GET(req: NextRequest) {
     filtroAgente = `AND at.agente_id = $${params.length}`;
   }
 
+  // Filtro por etiqueta do contato, ou "ia" (IA respondendo agora).
+  let filtroEtiqueta = "";
+  const etiquetaQ = (url.searchParams.get("etiqueta") ?? "").trim();
+  if (etiquetaQ === FILTRO_IA) {
+    filtroEtiqueta = `AND ${SQL_IA_RESPONDENDO}`;
+  } else if (ehEtiqueta(etiquetaQ)) {
+    params.push(etiquetaQ);
+    filtroEtiqueta = `AND COALESCE(et.etiquetas, '{}') @> ARRAY[$${params.length}]::text[]`;
+  }
+
   let filtroBusca = "";
   if (busca) {
     params.push(`%${busca}%`);
@@ -169,7 +191,9 @@ export async function GET(req: NextRequest) {
             to_char(GREATEST(at.atualizado_em, COALESCE(m.criado_em, at.atualizado_em))
                       AT TIME ZONE 'America/Sao_Paulo',
                     'YYYY-MM-DD HH24:MI') AS quando,
-            (m.direcao = 'in') AS nao_lida
+            (m.direcao = 'in') AS nao_lida,
+            COALESCE(et.etiquetas, '{}') AS etiquetas,
+            ${SQL_IA_RESPONDENDO} AS ia_respondendo
        FROM atendimentos at
        LEFT JOIN usuarios u ON u.id = at.atendente_id
        LEFT JOIN agentes ag ON ag.id = at.agente_id
@@ -186,7 +210,8 @@ export async function GET(req: NextRequest) {
           ORDER BY (foto IS NOT NULL) DESC, id ASC
           LIMIT 1
        ) pe ON true
-      WHERE 1=1 ${filtroView} ${filtroAtendente} ${filtroAgente} ${filtroBusca} ${filtroEscopo}
+       ${SQL_JOIN_ETIQUETAS}
+      WHERE 1=1 ${filtroView} ${filtroAtendente} ${filtroAgente} ${filtroBusca} ${filtroEtiqueta} ${filtroEscopo}
       ORDER BY quando DESC
       LIMIT 300`,
     params
@@ -252,7 +277,7 @@ export async function GET(req: NextRequest) {
 
 // ============================================================
 // POST /api/atendimento  { acao, agente_id, contato, ... }
-//   acao: assumir | transferir | resolver | reabrir | responder | presenca
+//   acao: assumir | transferir | resolver | reabrir | etiqueta | responder | presenca
 // ============================================================
 export async function POST(req: NextRequest) {
   const s = sessaoOk();
@@ -317,6 +342,26 @@ export async function POST(req: NextRequest) {
   if (acao === "reabrir") {
     await reabrir(agenteId, contato);
     return NextResponse.json({ ok: true });
+  }
+
+  // Etiqueta no contato deste candidato (cria o contato se a IA ainda não
+  // cadastrou). Não assume a conversa: marcar não é responder.
+  if (acao === "etiqueta") {
+    const etiqueta = b.etiqueta;
+    if (!ehEtiqueta(etiqueta))
+      return NextResponse.json({ erro: "Etiqueta inválida." }, { status: 400 });
+    const existe = await queryOne<{ id: number }>("SELECT id FROM agentes WHERE id = $1", [agenteId]);
+    if (!existe) return NextResponse.json({ erro: "Número não encontrado." }, { status: 404 });
+    const ultimo = await queryOne<{ contato_nome: string | null }>(
+      `SELECT contato_nome FROM mensagens
+        WHERE agente_id = $1 AND contato = $2 AND COALESCE(contato_nome,'') <> ''
+        ORDER BY id DESC LIMIT 1`,
+      [agenteId, contato]
+    );
+    const pessoaId = await garantirContato(agenteId, contato, ultimo?.contato_nome ?? null, String(s.uid));
+    if (!pessoaId) return NextResponse.json({ erro: "Número inválido." }, { status: 400 });
+    const finais = await gravarEtiqueta(pessoaId, etiqueta, opostaDe(etiqueta), b.ligar !== false);
+    return NextResponse.json({ ok: true, etiquetas: etiquetasValidas(finais) });
   }
 
   if (acao === "responder") {

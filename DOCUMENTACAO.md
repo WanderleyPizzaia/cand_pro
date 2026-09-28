@@ -180,6 +180,9 @@ execução por `lib/db.ts` (`CREATE TABLE IF NOT EXISTS`, idempotente). Datas em
 
 > Valores de `config` têm **fallback** para variáveis de ambiente de mesmo nome.
 
+`pessoas.etiquetas` (TEXT[], índice GIN) guarda as etiquetas do contato (ver 7.4).
+Índice `idx_pessoas_whatsapp_digitos` acelera achar o contato pelo número.
+
 ### `agente_arquivos` — galeria do agente
 Arquivos que a IA pode mandar (ver 7.7). `nome`, `quando` (situação de envio),
 `legenda`, `tipo` (`imagem`/`documento`), `mime`, `nome_arquivo`, `conteudo`
@@ -283,6 +286,17 @@ editar, excluir com confirmação). Seleção em massa: **adicionar à lista**
 (`POST /api/listas/membros`) e **exportar CSV** dos selecionados. O menu
 "Planilha" exporta com os filtros atuais, importa CSV e busca fotos do
 WhatsApp. O LIDER vê apenas os próprios cadastros.
+
+**Etiquetas** (`lib/etiquetas.ts`): **Vai votar**, **Não vai votar** (as duas se
+excluem) e **Retomar contato**, gravadas em `pessoas.etiquetas` no contato
+DAQUELE candidato (a mesma pessoa pode votar em um e não no outro). Marcadas no
+topo da conversa do Atendimento (`POST /api/atendimento`, `acao: "etiqueta"`;
+cria o contato se a IA ainda não cadastrou) ou no painel do contato
+(`POST /api/pessoas/etiqueta`, com o mesmo escopo da lista). Aparecem como
+chips na lista de conversas e na tabela de Contatos, com filtro nos dois e
+coluna na planilha. **IA respondendo** não é gravada: é o estado real da
+conversa (agente ligado e sem pausa valendo, `SQL_IA_RESPONDENDO` em
+`lib/atendimento.ts`, mesma regra de `estaPausado`) e também filtra a lista.
 
 ### 7.5 Formulário público de captação (`/form/[slug]`) — público
 `slug` = e-mail/usuário de um líder. Quem preenche **não precisa de login**; o
@@ -430,6 +444,7 @@ Todas em `force-dynamic`. Salvo indicação, exigem sessão.
 | `/api/busca` | GET | Busca global de contatos (`?q=`), no escopo da sessão |
 | `/api/listas/membros` | POST | Adiciona contatos selecionados a uma lista `{lista_id, pessoa_ids}` |
 | `/api/galeria` | GET, POST | Galeria do agente (gestor com `?id=`, candidato no próprio). POST `acao`: `ligar`, `adicionar`, `editar`, `excluir`, `testar` |
+| `/api/pessoas/etiqueta` | POST | Marca/desmarca etiqueta no contato `{id, etiqueta, ligar}` (escopo da lista) |
 | `/api/galeria/[id]` | GET | O arquivo em si (miniatura e bolha da conversa), para quem vê aquele número |
 
 ---

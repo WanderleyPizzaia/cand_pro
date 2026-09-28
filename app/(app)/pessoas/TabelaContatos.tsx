@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Icon from "../../components/Icon";
+import { ETIQUETAS, alternarEtiqueta, etiquetasValidas, type Etiqueta } from "@/lib/etiquetas";
 
 export type LinhaContato = {
   id: number;
@@ -23,6 +24,7 @@ export type LinhaContato = {
   agenteId: number | null;
   autor: string | null;
   criadoEm: string;
+  etiquetas: string[];
 };
 
 type Lista = { id: number; nome: string; agente_nome?: string | null; membros?: number };
@@ -102,6 +104,7 @@ function baixarCSV(linhas: LinhaContato[]) {
     ["instagram", (c) => c.instagram],
     ["observacao", (c) => c.observacao],
     ["candidato", (c) => c.candidato],
+    ["etiquetas", (c) => ETIQUETAS.filter((e) => c.etiquetas.includes(e.v)).map((e) => e.rotulo).join(", ")],
   ];
   const cel = (v: string | null) => {
     const s = v ?? "";
@@ -284,6 +287,13 @@ export default function TabelaContatos({
                         <span className="ct-sub">
                           {[c.funcao, c.cidade].filter(Boolean).join(" · ") || formatFone(c.whatsapp)}
                         </span>
+                        {c.etiquetas.length > 0 && (
+                          <span className="ct-etq">
+                            {ETIQUETAS.filter((e) => c.etiquetas.includes(e.v)).map((e) => (
+                              <span key={e.v} className={`selo ${e.tom}`}>{e.rotulo}</span>
+                            ))}
+                          </span>
+                        )}
                       </span>
                     </button>
                   </td>
@@ -397,6 +407,34 @@ function PainelContato({
   const conversa = conversaHref(c);
   const [menu, setMenu] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const router = useRouter();
+  const [etq, setEtq] = useState<string[]>(c.etiquetas);
+  const [erroEtq, setErroEtq] = useState("");
+
+  useEffect(() => {
+    setEtq(c.etiquetas);
+    setErroEtq("");
+  }, [c.id, c.etiquetas]);
+
+  // Marca na hora; se o servidor recusar, volta como estava.
+  async function marcar(v: Etiqueta, ligar: boolean) {
+    const antes = etq;
+    setErroEtq("");
+    setEtq(alternarEtiqueta(antes, v, ligar));
+    const r = await fetch("/api/pessoas/etiqueta", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: c.id, etiqueta: v, ligar }),
+    }).catch(() => null);
+    const d = r ? await r.json().catch(() => ({})) : {};
+    if (!r || !r.ok) {
+      setEtq(antes);
+      setErroEtq(d.erro || "Não deu para salvar a etiqueta. Tente de novo.");
+      return;
+    }
+    setEtq(etiquetasValidas(d.etiquetas));
+    router.refresh();
+  }
 
   useEffect(() => {
     ref.current?.focus();
@@ -460,6 +498,28 @@ function PainelContato({
               </div>
             )}
           </div>
+        </div>
+
+        <div className="ct-etiquetas">
+          <span className="rotulo">Etiquetas</span>
+          <div className="ct-etiquetas-opcoes" role="group" aria-label="Etiquetas do contato">
+            {ETIQUETAS.map((e) => {
+              const on = etq.includes(e.v);
+              return (
+                <button
+                  key={e.v}
+                  type="button"
+                  className={`chip etq ${e.tom}${on ? " ativo" : ""}`}
+                  aria-pressed={on}
+                  onClick={() => marcar(e.v, !on)}
+                >
+                  {on && <Icon name="check" size={12} />}
+                  {e.rotulo}
+                </button>
+              );
+            })}
+          </div>
+          {erroEtq && <p className="hint erro">{erroEtq}</p>}
         </div>
 
         <dl className="ct-dados">
