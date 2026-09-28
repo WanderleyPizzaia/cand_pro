@@ -3,7 +3,7 @@ import { query, queryOne, execute, Agente, Pessoa, Template, TemplateVar, quotaE
 import { getSessao } from "@/lib/auth";
 import { getConfig } from "@/lib/config";
 import { normalizarNumero } from "@/lib/evolution";
-import { agentesDaSessao } from "@/lib/escopo";
+import { agentesDaSessao, resolverEscopoAtual, filtroPessoas } from "@/lib/escopo";
 import {
   enviarMensagemAgente,
   enviarTemplateMeta,
@@ -157,6 +157,10 @@ export async function POST(req: NextRequest) {
       { status: 400 }
     );
 
+  // Público só dentro do escopo de quem dispara: candidato/equipe vinculados
+  // alcançam os contatos dos seus números, nunca a base de outro candidato.
+  const escPessoas = await resolverEscopoAtual(s);
+
   // ===== Número digitado (+55 DDD NÚMERO): cadastra/reaproveita na base e vira envio pontual =====
   // Mantém tudo rastreável (o contato passa a existir na base, com histórico e monitoramento).
   if (!pessoaId && numeroDigitado) {
@@ -167,10 +171,11 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     const criadoPor = String(s.uid);
-    // Reaproveita se o número já existir na base (compara só os dígitos).
+    // Reaproveita se o número já existir na base que a sessão enxerga
+    // (compara só os dígitos). Contato de outro candidato não é reaproveitado.
     const existente = await queryOne<{ id: number }>(
       `SELECT id FROM pessoas
-        WHERE regexp_replace(COALESCE(whatsapp,''),'\\D','','g') = $1
+        WHERE regexp_replace(COALESCE(whatsapp,''),'\\D','','g') = $1 ${filtroPessoas(escPessoas, "")}
         ORDER BY id LIMIT 1`,
       [num]
     );
@@ -178,9 +183,9 @@ export async function POST(req: NextRequest) {
       pessoaId = existente.id;
     } else {
       const novo = await queryOne<{ id: number }>(
-        `INSERT INTO pessoas (nome, whatsapp, categoria, criado_por)
-         VALUES ($1,$2,'Contato pontual',$3) RETURNING id`,
-        [contatoNome || "Contato WhatsApp", num, criadoPor]
+        `INSERT INTO pessoas (nome, whatsapp, categoria, criado_por, agente_id)
+         VALUES ($1,$2,'Contato pontual',$3,$4) RETURNING id`,
+        [contatoNome || "Contato WhatsApp", num, criadoPor, agente.id]
       );
       pessoaId = novo?.id ?? 0;
     }
@@ -188,9 +193,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ erro: "Não foi possível cadastrar o contato." }, { status: 500 });
   }
 
-  // Destinatários (com WhatsApp), aplicando filtros
+  // Destinatários (com WhatsApp), aplicando filtros e o escopo da sessão
   const params: any[] = [];
-  let where = "whatsapp IS NOT NULL AND whatsapp <> ''";
+  let where = `whatsapp IS NOT NULL AND whatsapp <> '' ${filtroPessoas(escPessoas, "")}`;
   if (cidade) {
     params.push(cidade);
     where += ` AND cidade = $${params.length}`;

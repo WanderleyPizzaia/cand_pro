@@ -288,9 +288,16 @@ editar, excluir com confirmação). Seleção em massa: **adicionar à lista**
 WhatsApp. O LIDER vê apenas os próprios cadastros.
 
 **Importação de CSV** (`lib/csv.ts` + `POST /api/pessoas/import`): o navegador
-lê o arquivo (UTF-8, UTF-16 ou Windows-1252, o "CSV" do Excel em português),
-separa com um leitor RFC (aspa só abre campo no começo dele; aspa solta no
-meio do texto não engole as linhas seguintes) e manda em partes de 1.000
+lê o arquivo (UTF-8, UTF-16 ou Windows-1252, o "CSV" do Excel em português,
+decidido linha a linha para planilhas que misturam os dois), acha o
+delimitador (`;`, `,`, TAB ou a linha `sep=;`) e o cabeçalho, que pode vir
+depois de um título. A coluna do nome aceita variações ("Nome Completo",
+"Nome do eleitor", os cabeçalhos do Google Contatos e do Outlook, com o
+sobrenome juntado ao nome). Com várias colunas de telefone, vale WhatsApp >
+celular > telefone. Sem coluna de nome, a tela lista as colunas que leu, e
+`.xlsx` pede para salvar como CSV. O leitor é RFC (aspa só abre campo no
+começo dele; aspa solta no meio do texto não engole as linhas seguintes) e
+manda em partes de 1.000
 linhas com progresso na tela. O servidor pula o contato que já existe
 naquele candidato (mesmo número, com ou sem o 55; sem número, mesmo nome e
 cidade), então **reimportar a mesma planilha só completa o que faltou**. Lote
@@ -499,6 +506,15 @@ O schema e o seed são criados automaticamente no primeiro acesso ao banco.
 - Integrações guardadas em `config` e **nunca** exibidas de volta na tela.
 - Proteções na gestão de usuários (sem auto-exclusão / sem remover o último
   admin).
+- **Isolamento entre candidatos:** toda rota que lê ou altera contatos passa por
+  `resolverEscopoAtual` + `filtroPessoas`. Isso vale para editar e excluir
+  contato (`PATCH`/`DELETE /api/pessoas`, que devolvem 404 fora do escopo), para os
+  destinatários de disparo (`/api/campanhas`: filtro por cidade/categoria, envio
+  pontual por contato e número digitado) e para a prévia/busca
+  (`/api/campanhas/preview`). Um contato cadastrado à mão por usuário vinculado
+  nasce no número (agente) dele, e um número digitado no disparo que pertence a
+  outro candidato vira um contato novo do candidato que dispara, sem reaproveitar o
+  do outro. Admin e coordenação global continuam vendo tudo.
 - **Pendência recomendada:** definir `AUTH_SECRET` próprio em produção e revisar
   permissões de visibilidade do Google Calendar.
 

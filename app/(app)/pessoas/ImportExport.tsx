@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Icon from "../../components/Icon";
-import { decodificarArquivo, detectarDelimitador, lerCSV, mapearCabecalho } from "@/lib/csv";
+import { decodificarArquivo, detectarDelimitador, lerCSV, acharCabecalho, planilhaNaoCSV } from "@/lib/csv";
 
 // Linhas por pedido: cabe folgado no limite de tempo e de tamanho da Vercel.
 const PARTE = 1000;
@@ -95,17 +95,33 @@ export default function ImportExport() {
     setImportando(true);
     setMsg(null);
     try {
-      const texto = decodificarArquivo(await file.arrayBuffer());
+      const buf = await file.arrayBuffer();
+      if (planilhaNaoCSV(buf)) {
+        setMsg({ t: "err", x: "Esse arquivo é do Excel (.xlsx/.xls), não CSV. No Excel: Arquivo › Salvar como › CSV e importe o arquivo salvo." });
+        return;
+      }
+      const texto = decodificarArquivo(buf);
       const { linhas, aspasSoltas } = lerCSV(texto, detectarDelimitador(texto));
-      if (linhas.length < 2) {
+      // O cabeçalho pode não ser a 1ª linha (título, linha em branco, "sep=;").
+      const h = acharCabecalho(linhas);
+      if (h < 0) {
+        const lidas = (linhas[0] || []).filter((c) => c.trim()).slice(0, 8).map((c) => `"${c.trim().slice(0, 40)}"`);
+        setMsg({
+          t: "err",
+          x: lidas.length
+            ? `Não achei a coluna do nome. Colunas lidas na 1ª linha: ${lidas.join(", ")}. Renomeie a coluna do nome para "Nome" e importe de novo.`
+            : "Arquivo vazio.",
+        });
+        return;
+      }
+      const cabecalho = linhas[h];
+      const dados = linhas.slice(h + 1);
+      if (!dados.length) {
         setMsg({ t: "err", x: "CSV sem dados (precisa de cabeçalho + linhas)." });
         return;
       }
-      const [cabecalho, ...dados] = linhas;
-      if (!mapearCabecalho(cabecalho).includes("nome")) {
-        setMsg({ t: "err", x: 'O CSV precisa de uma coluna "nome".' });
-        return;
-      }
+      // Acento que já veio quebrado de outro sistema ("Jo�o") não tem conserto aqui; só avisa.
+      const quebrados = dados.reduce((n, l) => n + (l.some((c) => c.includes("\uFFFD")) ? 1 : 0), 0);
       // Vincula ao número selecionado na aba (candidato = id do agente), se houver.
       const cand = sp.get("candidato");
       const url = cand ? `/api/pessoas/import?candidato=${encodeURIComponent(cand)}` : "/api/pessoas/import";
@@ -114,7 +130,7 @@ export default function ImportExport() {
 
       for (let i = 0; i < dados.length; i += PARTE) {
         setProgresso(`Importando ${fmt(Math.min(i + PARTE, dados.length))} de ${fmt(dados.length)}…`);
-        const corpo = JSON.stringify({ cabecalho, linhas: dados.slice(i, i + PARTE), inicio: i });
+        const corpo = JSON.stringify({ cabecalho, linhas: dados.slice(i, i + PARTE), inicio: i + h });
         let r: Response | null = null;
         let d: any = null;
         // Uma nova tentativa por parte: sem risco de duplicar, o servidor pula o que já entrou.
@@ -127,7 +143,7 @@ export default function ImportExport() {
           setMsg({
             t: "err",
             x:
-              `Parou na linha ${fmt(i + 2)}: ${d?.erro || "falha de conexão"}. ${fmt(soma.inseridos)} importado(s) até aqui. ` +
+              `Parou na linha ${fmt(i + h + 2)}: ${d?.erro || "falha de conexão"}. ${fmt(soma.inseridos)} importado(s) até aqui. ` +
               "Importe o mesmo arquivo de novo: quem já entrou é pulado.",
           });
           router.refresh();
@@ -151,6 +167,8 @@ export default function ImportExport() {
         partes.push(
           `aspa (") sem fechamento lida como texto na${aspasSoltas.length > 1 ? "s" : ""} linha${aspasSoltas.length > 1 ? "s" : ""} ${aspasSoltas.slice(0, 5).map(fmt).join(", ")}${aspasSoltas.length > 5 ? "…" : ""}`
         );
+      if (quebrados)
+        partes.push(`${fmt(quebrados)} linha(s) já vieram com acento quebrado (�) no arquivo`);
       setMsg({ t: soma.falhas ? "err" : "ok", x: partes.join(" · ") + "." });
       router.refresh();
     } catch {
