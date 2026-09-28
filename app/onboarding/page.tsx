@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 export default async function OnboardingPage() {
   const sessao = getSessao();
   if (!sessao) redirect("/login");
-  if (!sessao.escopoCandidato || sessao.onboarded) redirect("/");
+  if (!sessao.escopoCandidato || sessao.onboarded || sessao.perfil === "ATENDENTE") redirect("/");
 
   const primeiroNome = sessao.nome.split(" ")[0];
 

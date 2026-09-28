@@ -83,6 +83,49 @@ export async function enviarImagemEvolution(
   }
 }
 
+// Arquivo da galeria do agente: imagem ou documento (PDF). `midia` é o base64
+// puro ou um link público (https) — a Evolution aceita os dois em `media`.
+export type MidiaEnvio = {
+  tipo: "imagem" | "documento";
+  mime: string;
+  midia: string;
+  nomeArquivo: string;
+  legenda?: string;
+};
+
+export async function enviarMidiaEvolution(
+  instancia: string,
+  numero: string,
+  m: MidiaEnvio,
+  apikeyOverride?: string | null
+): Promise<{ ok: boolean; waId?: string | null; erro?: string }> {
+  const base = (await getConfig("EVOLUTION_URL")).replace(/\/$/, "");
+  const apikey = apikeyOverride || (await getConfig("EVOLUTION_APIKEY"));
+  if (!base || !apikey) return { ok: false, erro: "Evolution não configurada" };
+  try {
+    const r = await fetch(`${base}/message/sendMedia/${encodeURIComponent(instancia)}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", apikey },
+      body: JSON.stringify({
+        number: numero,
+        mediatype: m.tipo === "documento" ? "document" : "image",
+        mimetype: m.mime,
+        media: m.midia,
+        fileName: m.nomeArquivo,
+        caption: m.legenda || undefined,
+      }),
+    });
+    if (!r.ok) {
+      const t = await r.text().catch(() => "");
+      return { ok: false, erro: `Evolution ${r.status}: ${t.slice(0, 200)}` };
+    }
+    const d = await r.json().catch(() => null);
+    return { ok: true, waId: d?.key?.id ?? null };
+  } catch (e: any) {
+    return { ok: false, erro: e.message };
+  }
+}
+
 export async function enviarTexto(
   instancia: string,
   numero: string,

@@ -1,5 +1,12 @@
 import { getConfig } from "./config";
-import { enviarTexto, enviarAudioEvolution, enviarImagemEvolution, normalizarNumero } from "./evolution";
+import {
+  enviarTexto,
+  enviarAudioEvolution,
+  enviarImagemEvolution,
+  enviarMidiaEvolution,
+  normalizarNumero,
+  type MidiaEnvio,
+} from "./evolution";
 import { paraOggOpus } from "./audioConv";
 import type { Agente, TemplateVar } from "./db";
 
@@ -116,6 +123,62 @@ export async function enviarImagemMeta(
   } catch (e: any) {
     return { ok: false, erro: e.message };
   }
+}
+
+// Envia um arquivo da galeria (imagem ou PDF) pela Meta Cloud API. Link
+// público vai direto (`link`); base64 sobe antes como mídia e vai pelo id.
+export async function enviarMidiaMeta(
+  phoneId: string,
+  token: string,
+  numero: string,
+  m: MidiaEnvio
+): Promise<{ ok: boolean; waId?: string | null; erro?: string }> {
+  if (!phoneId || !token) return { ok: false, erro: "Credenciais Meta ausentes" };
+  const ver = await apiVersion();
+  const to = normalizarNumero(numero);
+  const tipo = m.tipo === "documento" ? "document" : "image";
+  try {
+    const corpo: any = /^https?:\/\//i.test(m.midia) ? { link: m.midia } : {};
+    if (!corpo.link) {
+      const form = new FormData();
+      form.append("messaging_product", "whatsapp");
+      form.append("type", m.mime);
+      form.append("file", new Blob([Buffer.from(m.midia, "base64")], { type: m.mime }), m.nomeArquivo);
+      const up = await fetch(`https://graph.facebook.com/${ver}/${phoneId}/media`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: form,
+      });
+      const ud = await up.json().catch(() => ({}));
+      if (!up.ok || !ud?.id)
+        return { ok: false, erro: `Meta upload: ${String(ud?.error?.message || up.status).slice(0, 200)}` };
+      corpo.id = ud.id;
+    }
+    if (m.legenda) corpo.caption = m.legenda;
+    if (tipo === "document") corpo.filename = m.nomeArquivo;
+    const r = await fetch(`https://graph.facebook.com/${ver}/${phoneId}/messages`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ messaging_product: "whatsapp", to, type: tipo, [tipo]: corpo }),
+    });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) return { ok: false, erro: `Meta: ${String(d?.error?.message || r.status).slice(0, 200)}` };
+    return { ok: true, waId: d?.messages?.[0]?.id ?? null };
+  } catch (e: any) {
+    return { ok: false, erro: e.message };
+  }
+}
+
+// Dispatcher: envia um arquivo da galeria pelo provedor do agente.
+export async function enviarMidiaAgente(
+  agente: Agente,
+  numero: string,
+  m: MidiaEnvio
+): Promise<{ ok: boolean; waId?: string | null; erro?: string }> {
+  if (agente.provedor === "meta")
+    return enviarMidiaMeta(agente.meta_phone_id || "", agente.meta_token || "", numero, m);
+  if (!agente.instancia) return { ok: false, erro: "Agente sem instância configurada." };
+  return enviarMidiaEvolution(agente.instancia, normalizarNumero(numero), m, agente.apikey);
 }
 
 // Dispatcher: envia imagem pelo provedor do agente (Meta ou Evolution).

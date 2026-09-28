@@ -180,6 +180,11 @@ execução por `lib/db.ts` (`CREATE TABLE IF NOT EXISTS`, idempotente). Datas em
 
 > Valores de `config` têm **fallback** para variáveis de ambiente de mesmo nome.
 
+### `agente_arquivos` — galeria do agente
+Arquivos que a IA pode mandar (ver 7.7). `nome`, `quando` (situação de envio),
+`legenda`, `tipo` (`imagem`/`documento`), `mime`, `nome_arquivo`, `conteudo`
+(base64) **ou** `url` (link https), `tamanho`, `removido_em` (exclusão lógica).
+
 ### Primeiro acesso
 O sistema não cria dados de exemplo nem tem senha padrão:
 - **usuarios**: se a tabela estiver vazia **e** `ADMIN_EMAIL` + `ADMIN_SENHA`
@@ -306,6 +311,32 @@ liga/desliga (responder automático) e métricas (mensagens totais, recebidas
 hoje). Mostra a **URL do webhook** para colar na Evolution. Funciona em "modo
 pendente" até as chaves (Evolution + Claude) estarem configuradas.
 
+**Galeria do agente** (em Ajustes, e em Meu agente para o candidato): arquivos
+prontos que a IA pode mandar no WhatsApp, como santinho (imagem) e plano de
+governo (PDF). Cada arquivo tem nome, **situação em que deve ser enviado**
+(texto livre que vai para a IA) e legenda opcional. Aceita JPG, PNG ou
+PDF de até 3 MB (limite do corpo da requisição na Vercel), ou um **link
+direto** https terminando em .pdf/.jpg/.png para arquivos maiores. Até 10
+arquivos por agente.
+- **Chave geral**: é a ferramenta `config.ferramentas.enviar_material`
+  ("Enviar material de campanha"), desligada por padrão. Só a galeria liga e
+  desliga; Meu agente não sobrescreve esse campo ao salvar.
+- **Como a IA envia**: com a chave ligada, a lista entra no prompt e a IA
+  escreve `[[ENVIAR:id]]` na resposta. `lib/galeria.ts` tira todo marcador do
+  texto (mesmo com a galeria desligada, nada vaza), manda o texto e depois o
+  arquivo (`sendMedia` image/document na Evolution; upload + `image`/`document`
+  na Meta). No máximo 1 arquivo por resposta e o mesmo arquivo no máximo 2
+  vezes por contato por dia (anti-loop).
+- **Registro**: o envio vira mensagem `origem='ia'` com `media =
+  /api/galeria/<id>` (sem duplicar o base64). Excluir da galeria só marca
+  `removido_em`: a IA para de mandar e a conversa antiga continua mostrando o
+  arquivo.
+- **Testar**: a caixa "Testar" simula uma mensagem de eleitor e mostra a
+  resposta e o arquivo que iria, sem mandar nada, mesmo com a chave desligada.
+- **Limite conhecido**: agentes na API oficial da Meta respondem por um
+  caminho próprio (`/api/whatsapp/meta`) que ainda não usa a galeria; a tela
+  avisa. Com o n8n orquestrando (`/api/agente/responder`), funciona nos dois.
+
 ### 7.8 Agenda (`/agenda`) — todos
 Espelha o **Google Calendar em tempo real** via iframe (só leitura). A fonte é
 configurável em **Configurações** (campo *Google Calendar*) — aceita o **ID do
@@ -398,6 +429,8 @@ Todas em `force-dynamic`. Salvo indicação, exigem sessão.
 | `/api/contadores` | GET | Selos do menu: fila, pautas novas, tarefas vencendo |
 | `/api/busca` | GET | Busca global de contatos (`?q=`), no escopo da sessão |
 | `/api/listas/membros` | POST | Adiciona contatos selecionados a uma lista `{lista_id, pessoa_ids}` |
+| `/api/galeria` | GET, POST | Galeria do agente (gestor com `?id=`, candidato no próprio). POST `acao`: `ligar`, `adicionar`, `editar`, `excluir`, `testar` |
+| `/api/galeria/[id]` | GET | O arquivo em si (miniatura e bolha da conversa), para quem vê aquele número |
 
 ---
 

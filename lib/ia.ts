@@ -118,7 +118,8 @@ export async function perguntarGestao(
 export async function responderTeste(
   persona: string,
   historico: { role: string; content: string }[],
-  iaKey?: string | null
+  iaKey?: string | null,
+  extraSistema = ""
 ): Promise<{ ok: boolean; texto?: string; erro?: string }> {
   const key = await resolverChave(iaKey);
   if (!key) return { ok: false, erro: "Chave de IA não configurada" };
@@ -135,7 +136,7 @@ export async function responderTeste(
   while (hist.length && hist[0].role !== "user") hist.shift();
   if (!hist.length) return { ok: false, erro: "Sem mensagem" };
   return chamarIA(key, model, [
-    { role: "system", content: (persona || "Você é um assistente cordial.") + GUARDA },
+    { role: "system", content: (persona || "Você é um assistente cordial.") + GUARDA + extraSistema },
     ...hist,
   ]);
 }
@@ -382,12 +383,14 @@ export async function extrairPauta(
 }
 
 // Gera a resposta do agente para um contato. `iaKey` = chave do agente.
+// `extraSistema` = instruções a mais no prompt (ex.: a galeria de arquivos).
 export async function gerarResposta(
   agenteId: number,
   persona: string,
   contato: string,
   iaKey?: string | null,
-  limites?: LimitesIA
+  limites?: LimitesIA,
+  extraSistema = ""
 ): Promise<{ ok: boolean; texto?: string; erro?: string }> {
   const lim = limites || LIMITES_IA_PADRAO;
   const key = await resolverChave(iaKey);
@@ -451,7 +454,7 @@ export async function gerarResposta(
   const messages = [
     {
       role: "system",
-      content: (persona || "Você é um assistente cordial.") + fatos + GUARDA + escopo,
+      content: (persona || "Você é um assistente cordial.") + fatos + GUARDA + escopo + extraSistema,
     },
     ...hist,
   ];

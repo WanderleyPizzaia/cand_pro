@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import CountUp from "../../components/CountUp";
 import Icon from "../../components/Icon";
+import GaleriaAgente from "../../components/GaleriaAgente";
 
 type Agente = {
   id: number;
@@ -792,6 +793,9 @@ export default function AgenteCard({
               {salvando ? "Salvando..." : "Salvar"}
             </button>
           </div>
+
+          {/* Material de campanha que a IA pode mandar (salva sozinho, fora do Salvar) */}
+          <GaleriaAgente agenteId={agente.id} />
 
           {/* Manutenção da instância Evolution (não se aplica ao provedor Meta) */}
           {!ehMeta && (

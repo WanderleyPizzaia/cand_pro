@@ -17,12 +17,10 @@ export default async function AppLayout({
   // Candidato real (vinculado a um gabinete) no 1º acesso: tela de boas-vindas,
   // uma única vez. Persiste no banco (onboarded, vale nos próximos logins) e usa
   // o cookie para não repetir dentro do mesmo acesso (a flag da sessão só
-  // atualiza no próximo login).
-  if (
-    sessao.escopoCandidato &&
-    !sessao.onboarded &&
-    !cookies().get("onboarding_visto")
-  ) {
+  // atualiza no próximo login). Atendente não configura gabinete: sem
+  // boas-vindas nem tour, entra direto na fila.
+  const guiaDoGabinete = !!sessao.escopoCandidato && sessao.perfil !== "ATENDENTE";
+  if (guiaDoGabinete && !sessao.onboarded && !cookies().get("onboarding_visto")) {
     redirect("/onboarding");
   }
 
@@ -37,7 +35,7 @@ export default async function AppLayout({
       nome={sessao.nome}
       perfil={sessao.perfil}
       foto={u?.foto ?? null}
-      tour={!!sessao.escopoCandidato}
+      tour={guiaDoGabinete}
     >
       {children}
     </AppShell>
