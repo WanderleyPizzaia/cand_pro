@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Icon from "../../components/Icon";
-import { decodificarArquivo, detectarDelimitador, mapearCabecalho, parseCSV } from "@/lib/csv";
+import { decodificarArquivo, detectarDelimitador, lerCSV, mapearCabecalho } from "@/lib/csv";
 
 // Linhas por pedido: cabe folgado no limite de tempo e de tamanho da Vercel.
 const PARTE = 1000;
@@ -96,7 +96,7 @@ export default function ImportExport() {
     setMsg(null);
     try {
       const texto = decodificarArquivo(await file.arrayBuffer());
-      const linhas = parseCSV(texto, detectarDelimitador(texto));
+      const { linhas, aspasSoltas } = lerCSV(texto, detectarDelimitador(texto));
       if (linhas.length < 2) {
         setMsg({ t: "err", x: "CSV sem dados (precisa de cabeçalho + linhas)." });
         return;
@@ -146,6 +146,10 @@ export default function ImportExport() {
       if (soma.falhas)
         partes.push(
           `${fmt(soma.falhas)} com erro (linha${soma.falhas > 1 ? "s" : ""} ${linhasErro.slice(0, 5).join(", ")}${soma.falhas > 5 ? "…" : ""})`
+        );
+      if (aspasSoltas.length)
+        partes.push(
+          `aspa (") sem fechamento lida como texto na${aspasSoltas.length > 1 ? "s" : ""} linha${aspasSoltas.length > 1 ? "s" : ""} ${aspasSoltas.slice(0, 5).map(fmt).join(", ")}${aspasSoltas.length > 5 ? "…" : ""}`
         );
       setMsg({ t: soma.falhas ? "err" : "ok", x: partes.join(" · ") + "." });
       router.refresh();
