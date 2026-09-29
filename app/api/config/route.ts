@@ -36,6 +36,8 @@ export async function POST(req: NextRequest) {
     "META_APP_SECRET",
     // Instagram: segredo do app do Instagram (assinatura quando a Meta chama direto).
     "INSTAGRAM_APP_SECRET",
+    // Instagram: webhook do n8n que recebe as contas ainda não conectadas aqui.
+    "INSTAGRAM_REPASSE_URL",
   ]) {
     if (typeof b[chave] === "string" && b[chave].trim()) {
       await setConfig(chave, b[chave].trim());

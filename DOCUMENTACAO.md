@@ -458,9 +458,21 @@ Eventos chegam em `POST /api/instagram/webhook` de dois jeitos:
   Meta e, com um IF logo depois de "Responder 200 à Meta", repassa só a conta de
   teste para `…/api/instagram/webhook?token=INSTAGRAM_WEBHOOK_TOKEN`. As outras
   contas seguem no n8n. O passo a passo e a URL aparecem para o admin no painel.
-- **Meta direto (depois):** com o callback do app apontando para o sistema, a
+- **Meta direto (sem n8n):** com o callback do app apontando para o sistema, a
   assinatura `X-Hub-Signature-256` é conferida com `INSTAGRAM_APP_SECRET`
-  (Configurações), e a verificação `GET` usa `INSTAGRAM_VERIFY_TOKEN`.
+  (Configurações), e a verificação `GET` usa `INSTAGRAM_VERIFY_TOKEN`. A URL e o
+  token aparecem no painel do admin. O callback é **um por app**, então os
+  eventos de contas ainda não conectadas aqui são **repassados ao n8n**
+  (`INSTAGRAM_REPASSE_URL`). Se todas as entradas do evento são de fora, o corpo
+  vai como chegou, com a assinatura original; se o evento é misto, vai só a parte
+  de fora. Se o n8n não responder, a rota devolve 502 para a Meta reenviar, e o
+  que é daqui é descartado pelo `mid`. O que veio do n8n (token) ou já é repasse
+  (`X-Candpro-Repasse`) nunca é repassado, para não criar laço. Comentários de
+  conta conectada **não** vão ao n8n: o Direct automático dele voltaria como eco
+  e pausaria a IA.
+- **Token:** vale 60 dias. O agendador (cron-job.org) renova, no máximo uma vez
+  por hora, os tokens com mais de 7 dias (`refresh_access_token`), guardando
+  renovação e validade. Uma falha fica em `ig_token_erro` e aparece no painel.
 
 A rota responde na hora e trabalha em seguida (`waitUntil`). Regras
 (`lib/instagramWebhook.ts`), as mesmas do fluxo do n8n:
@@ -528,7 +540,7 @@ Todas em `force-dynamic`. Salvo indicação, exigem sessão.
 | `/api/galeria/[id]` | GET | O arquivo em si (miniatura e bolha da conversa), para quem vê aquele número |
 | `/api/campanhas` | GET, POST, DELETE | Histórico / dispara ou agenda (`agendado_para`) / cancela agendado (`?id=`) |
 | `/api/campanhas/agendador` | GET, POST | Envia os agendados vencidos. Sem sessão, com `?token=AGENDADOR_TOKEN` (cron-job.org) ou `Bearer CRON_SECRET` |
-| `/api/instagram/webhook` | GET, POST | Eventos do Direct. Sem sessão: `?token=INSTAGRAM_WEBHOOK_TOKEN` (repasse do n8n) ou assinatura da Meta; GET = verificação |
+| `/api/instagram/webhook` | GET, POST | Eventos do Direct. Sem sessão: assinatura da Meta (repassa ao n8n as contas não conectadas) ou `?token=INSTAGRAM_WEBHOOK_TOKEN` (repasse do n8n); GET = verificação |
 | `/api/instagram/conta` | GET, POST | Conta do Instagram do número (`?agente=`). POST `acao`: `conectar` (token), `ligar`, `desconectar` (ADMIN/COORDENACAO) |
 | `/api/midia/[id]` | GET | Arquivo da galeria por link assinado (`?s=`), sem login, para o Instagram baixar |
 | `/api/disparos/monitor` | GET | Campanhas com entregues/lidos/responderam, resumo e estado do agendador (token só para o ADMIN) |

@@ -9,8 +9,35 @@ type Estado = {
   conta_id: string | null;
   ativo: boolean;
   conversas: number;
+  token_renovado: string | null;
+  token_expira: string | null;
+  token_erro: string | null;
   repasse_token: string | null;
+  verify_token: string | null;
+  direto: { segredo_ok: boolean; repasse_ok: boolean } | null;
 };
+
+function Copiar({ valor }: { valor: string }) {
+  const [ok, setOk] = useState(false);
+  return (
+    <span className="ig-copiar">
+      <code>{valor}</code>
+      <button
+        type="button"
+        className="btn-link"
+        onClick={async () => {
+          try {
+            await navigator.clipboard.writeText(valor);
+          } catch {}
+          setOk(true);
+          setTimeout(() => setOk(false), 1500);
+        }}
+      >
+        {ok ? "Copiado" : "Copiar"}
+      </button>
+    </span>
+  );
+}
 
 // Conta do Instagram do candidato: conecta pelo token, liga/desliga a IA no
 // Direct e (admin) mostra como o n8n repassa os eventos da conta de teste.
@@ -65,8 +92,9 @@ export default function InstagramAgente({ agenteId }: { agenteId: number }) {
           <div className="ferramenta-txt">
             <b>Instagram (Direct)</b>
             <small>
-              Cole o token de acesso da conta profissional (começa com <code>IG</code>). Ele fica guardado no
-              servidor e não aparece mais na tela. A conta entra desligada: a IA só responde depois que você ligar.
+              Cole o token de acesso de longa duração (60 dias, começa com <code>IG</code>) gerado no app da Meta.
+              Ele fica guardado no servidor, não aparece mais na tela e é renovado sozinho. A conta entra
+              desligada: a IA só responde depois que você ligar.
             </small>
           </div>
           <div className="ig-conectar">
@@ -113,6 +141,41 @@ export default function InstagramAgente({ agenteId }: { agenteId: number }) {
               <span className="dot" />
             </button>
           </div>
+
+          {d.token_erro ? (
+            <div className="msg err">
+              Não consegui renovar o token: {d.token_erro}. Gere um novo no app da Meta, desconecte e conecte de novo.
+            </div>
+          ) : (
+            <small className="hint">
+              Token renovado sozinho a cada 7 dias{d.token_renovado ? ` · última renovação ${d.token_renovado}` : ""}
+              {d.token_expira ? ` · vale até ${d.token_expira}` : ""}. A renovação roda junto do agendador (cron-job.org).
+            </small>
+          )}
+
+          {d.verify_token && d.direto && (
+            <details className="ig-repasse">
+              <summary>Sem n8n: webhook do app apontando para o sistema</summary>
+              <ol className="hint">
+                <li>
+                  Em <b>Configurações</b>: a <b>Chave secreta do app do Instagram</b>{" "}
+                  {d.direto.segredo_ok ? <span className="txt-ok">(ok)</span> : <span className="txt-erro">(falta)</span>} e o
+                  endereço do n8n para <b>repassar</b> as contas que ainda não estão aqui{" "}
+                  {d.direto.repasse_ok ? <span className="txt-ok">(ok)</span> : <span className="txt-erro">(falta)</span>}.
+                  Sem o repasse, as outras contas do app param de ser respondidas.
+                </li>
+                <li>
+                  No app da Meta → Instagram → <b>Webhooks</b>, assine o campo <b>messages</b> com esta URL de retorno:
+                  <CopyLink path="/api/instagram/webhook" />
+                  e este token de verificação: <Copiar valor={d.verify_token} />
+                </li>
+                <li>
+                  Comentários desta conta deixam de ir ao n8n (ainda não são respondidos aqui). Para voltar atrás,
+                  ponha de novo a URL do n8n no app da Meta.
+                </li>
+              </ol>
+            </details>
+          )}
 
           {d.repasse_token && (
             <details className="ig-repasse">

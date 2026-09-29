@@ -13,6 +13,7 @@ type Status = {
   n8nAgenteUrl: boolean;
   metaAppSecret: boolean;
   instagramAppSecret: boolean;
+  instagramRepasse: boolean;
 };
 
 const VAZIO = {
@@ -25,6 +26,7 @@ const VAZIO = {
   N8N_AGENTE_URL: "",
   META_APP_SECRET: "",
   INSTAGRAM_APP_SECRET: "",
+  INSTAGRAM_REPASSE_URL: "",
 };
 
 function Selo({ ok }: { ok: boolean }) {
@@ -140,6 +142,22 @@ export default function FormConfig({ status }: { status: Status }) {
           Só quando o webhook do Instagram apontar direto para o sistema (sem o n8n no meio):
           confere a assinatura de cada aviso. Fica no app da Meta → Instagram → Configuração da API com login
           do Instagram → <b>Chave secreta do app do Instagram</b>. As contas se conectam em Agentes → Instagram.
+        </small>
+      </div>
+
+      <div className="field">
+        <label>
+          Repassar ao n8n (contas do Instagram não conectadas aqui) <Selo ok={status.instagramRepasse} />
+        </label>
+        <input
+          placeholder="https://seu-n8n/webhook/instagram"
+          value={f.INSTAGRAM_REPASSE_URL}
+          onChange={(e) => set("INSTAGRAM_REPASSE_URL", e.target.value)}
+        />
+        <small style={{ color: "var(--muted)", fontSize: 12, marginTop: 4 }}>
+          Com o webhook do app apontando para o sistema, as contas que ainda não foram conectadas em
+          Agentes → Instagram seguem para este endereço do n8n, como antes. Quando todas estiverem
+          conectadas aqui, o repasse fica sem nada para mandar.
         </small>
       </div>
 

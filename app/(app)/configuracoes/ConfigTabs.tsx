@@ -18,6 +18,7 @@ type Status = {
   n8nAgenteUrl: boolean;
   metaAppSecret: boolean;
   instagramAppSecret: boolean;
+  instagramRepasse: boolean;
 };
 
 type Aba = "usuarios" | "integracoes" | "cargos" | "senha";

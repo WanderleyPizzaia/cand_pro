@@ -2686,6 +2686,15 @@
 .ig-repasse li + li {
   margin-top: 4px;
 }
+.ig-copiar {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.ig-copiar code {
+  word-break: break-all;
+}
 .at-canal-ig {
   margin-right: 4px;
   vertical-align: -2px;
