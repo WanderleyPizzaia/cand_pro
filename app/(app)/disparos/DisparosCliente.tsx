@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Icon from "../../components/Icon";
 import CountUp from "../../components/CountUp";
+import CopyLink from "../../components/CopyLink";
 
 type AgenteOpt = {
   id: number;
@@ -40,8 +41,26 @@ type Campanha = {
   aguardando: number;
   lidos: number;
   responderam: number;
+  motivo: string | null;
+  agendado: boolean;
 };
 type Resumo = { agendadas: number; enviados_total: number; campanhas_hoje: number };
+// token só vem para o admin (monta a URL do cron-job.org).
+type Agendador = { ultima: string | null; parado: boolean; token: string | null };
+
+const SELO: Record<string, string> = {
+  agendada: "atencao", pausada: "atencao", enviando: "ouro", enfileirada: "ouro",
+  erro: "erro", expirada: "erro", cancelada: "",
+};
+
+function haQuanto(iso: string | null): string {
+  if (!iso) return "nunca";
+  const min = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
+  if (min < 1) return "há menos de 1 min";
+  if (min < 60) return `há ${min} min`;
+  const h = Math.round(min / 60);
+  return h < 48 ? `há ${h} h` : `há ${Math.round(h / 24)} dias`;
+}
 
 export default function DisparosCliente({
   agentes,
@@ -80,17 +99,20 @@ export default function DisparosCliente({
 
   const [campanhas, setCampanhas] = useState<Campanha[]>([]);
   const [resumo, setResumo] = useState<Resumo | null>(null);
+  const [agendador, setAgendador] = useState<Agendador | null>(null);
 
   const agente = agentes.find((a) => String(a.id) === agenteId);
   const ehMeta = agente?.provedor === "meta";
   const saldo = agente ? Math.max(0, agente.quota - agente.disparosHoje) : 0;
+  // Agendado usa a cota do dia do envio (inteira), não o que sobrou hoje.
+  const teto = quando === "agendar" ? agente?.quota ?? 0 : saldo;
   // Número novo válido? (normaliza p/ 55 + DDD + número → 12/13 dígitos)
   const digitos = numeroNovo.replace(/\D/g, "");
   const numeroNovoOk =
     digitos.length >= 12 || digitos.length === 10 || digitos.length === 11;
   const contatoPronto = contatoModo === "novo" ? numeroNovoOk : !!contatoSel;
   const alvo =
-    modo === "contato" ? (contatoPronto ? 1 : 0) : Math.min(quantidade || 0, saldo, previa ?? Infinity);
+    modo === "contato" ? (contatoPronto ? 1 : 0) : Math.min(quantidade || 0, teto, previa ?? Infinity);
 
   // Busca de contato específico (por nome/número), com debounce.
   useEffect(() => {
@@ -144,8 +166,17 @@ export default function DisparosCliente({
       const d = await r.json();
       setCampanhas(d.campanhas || []);
       setResumo(d.resumo || null);
+      setAgendador(d.agendador || null);
     }
   }, []);
+
+  async function cancelar(c: Campanha) {
+    if (!confirm(`Cancelar o disparo agendado${c.titulo ? ` "${c.titulo}"` : ""}? Quem ainda não recebeu não recebe mais.`)) return;
+    const r = await fetch(`/api/campanhas?id=${c.id}`, { method: "DELETE" });
+    const d = await r.json().catch(() => ({}));
+    setMsg(r.ok ? { t: "ok", x: "Disparo cancelado." } : { t: "err", x: d.erro || "Não deu para cancelar." });
+    carregar();
+  }
   useEffect(() => {
     carregar();
     const t = setInterval(carregar, 8000);
@@ -283,8 +314,8 @@ export default function DisparosCliente({
               <input
                 type="range"
                 min={1}
-                max={Math.max(1, Math.min(saldo || 1, previa ?? 1))}
-                value={Math.min(quantidade, Math.max(1, Math.min(saldo || 1, previa ?? 1)))}
+                max={Math.max(1, Math.min(teto || 1, previa ?? 1))}
+                value={Math.min(quantidade, Math.max(1, Math.min(teto || 1, previa ?? 1)))}
                 onChange={(e) => setQuantidade(Number(e.target.value))}
               />
               <input
@@ -392,6 +423,13 @@ export default function DisparosCliente({
           {quando === "agendar" && (
             <input type="datetime-local" aria-label="Data e hora do envio" value={agendadoPara} onChange={(e) => setAgendadoPara(e.target.value)} />
           )}
+          {quando === "agendar" && agendador?.parado && (
+            <div className="msg warn">
+              O agendador não está rodando (última verificação: {haQuanto(agendador.ultima)}). Sem ele, o disparo
+              agendado não sai.{" "}
+              {agendador.token ? "Configure o cron-job.org no quadro \"Agendador automático\", abaixo." : "Peça ao administrador para ligar o agendador (cron-job.org)."}
+            </div>
+          )}
         </div>
 
         <div className="field">
@@ -412,6 +450,22 @@ export default function DisparosCliente({
           <div className="disp-card"><b><CountUp value={resumo?.enviados_total ?? 0} /></b><span>enviados (total)</span></div>
           <div className="disp-card"><b><CountUp value={resumo?.agendadas ?? 0} /></b><span>agendadas</span></div>
         </div>
+
+        {agendador?.token && (
+          <details className="disp-agendador" open={agendador.parado}>
+            <summary>
+              <Icon name="clock" size={14} /> Agendador automático ·{" "}
+              {agendador.parado ? <span className="txt-erro">parado</span> : <span className="txt-ok">rodando</span>}
+              <span className="muted"> · última verificação {haQuanto(agendador.ultima)}</span>
+            </summary>
+            <p className="hint">
+              Os disparos agendados saem quando o cron-job.org chama este endereço a cada minuto. No
+              cron-job.org: <b>Create cronjob</b>, cole a URL, marque <b>Every minute</b> e salve. A URL tem
+              uma senha: não compartilhe.
+            </p>
+            <CopyLink path={`/api/campanhas/agendador?token=${encodeURIComponent(agendador.token)}`} />
+          </details>
+        )}
 
         <div className="disp-mon-h">Monitoramento</div>
         <div className="table-wrap">
@@ -438,7 +492,13 @@ export default function DisparosCliente({
                     <td data-label="Candidato">{c.agente_nome || "-"}</td>
                     <td data-label="Responsável">{c.responsavel || "-"}</td>
                     <td data-label="Status">
-                      <span className={`selo ${c.status === "agendada" ? "atencao" : c.status === "enviando" ? "ouro" : c.status === "erro" ? "erro" : "ok"}`}>{c.status}</span>
+                      <span className={`selo ${SELO[c.status] ?? "ok"}`} title={c.motivo || undefined}>{c.status}</span>
+                      {c.motivo && <small className="disp-motivo">{c.motivo}</small>}
+                      {c.agendado && ["agendada", "pausada", "enviando"].includes(c.status) && (
+                        <button type="button" className="btn-link perigo disp-cancelar" onClick={() => cancelar(c)}>
+                          Cancelar
+                        </button>
+                      )}
                     </td>
                     <td data-label="Enviados" className="num forte">{Math.max(c.enviados || 0, c.out_real || 0)}/{c.total}</td>
                     <td data-label="Aguardando" title="Aceitas pela Meta, mas ainda não entregues no aparelho">

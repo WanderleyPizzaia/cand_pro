@@ -404,7 +404,7 @@ async function limparDemoAntiga() {
 // aí o próximo boot roda as migrações uma vez e volta a pular. Isto é o que
 // deixa o app rápido: sem o gate, cada lambda fria repetia ~50 comandos DDL +
 // seeds antes da 1ª consulta (o "demora no primeiro clique").
-const SCHEMA_V = "2026-09-28.etiquetas";
+const SCHEMA_V = "2026-09-29.agendador";
 
 async function inicializar() {
   // Gate barato: garante a tabela config e, se o schema já está na versão
@@ -506,6 +506,23 @@ async function inicializar() {
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_mensagens_campanha ON mensagens (campanha_id)`);
   // Disparos: agendamento (NULL = envio imediato). status 'agendada' até disparar.
   await pool.query(`ALTER TABLE campanhas ADD COLUMN IF NOT EXISTS agendado_para TIMESTAMPTZ`);
+  // Disparo agendado (lib/agendador.ts): template da Meta, trava do lote em
+  // andamento e o público congelado na hora de agendar (o que a prévia mostrou).
+  await pool.query(`ALTER TABLE campanhas ADD COLUMN IF NOT EXISTS template TEXT`);
+  await pool.query(`ALTER TABLE campanhas ADD COLUMN IF NOT EXISTS idioma TEXT`);
+  await pool.query(`ALTER TABLE campanhas ADD COLUMN IF NOT EXISTS processando_ate TIMESTAMPTZ`);
+  await pool.query(`ALTER TABLE campanhas ADD COLUMN IF NOT EXISTS motivo TEXT`);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS campanha_destinatarios (
+      campanha_id BIGINT NOT NULL REFERENCES campanhas(id) ON DELETE CASCADE,
+      pessoa_id BIGINT NOT NULL REFERENCES pessoas(id) ON DELETE CASCADE,
+      status TEXT,              -- NULL = falta enviar | 'enviando' | 'ok' | 'falha'
+      atualizado_em TIMESTAMPTZ,
+      PRIMARY KEY (campanha_id, pessoa_id)
+    )`);
+  await pool.query(
+    `CREATE INDEX IF NOT EXISTS idx_campanhas_agendador ON campanhas (status, agendado_para) WHERE agendado_para IS NOT NULL`
+  );
   // Metas: alvo de captação por candidato (ou global) com progresso calculado ao vivo.
   await pool.query(`
     CREATE TABLE IF NOT EXISTS metas (

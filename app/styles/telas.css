@@ -2975,6 +2975,40 @@
 .disp-mon-h {
   margin: 20px 0 10px;
 }
+/* Agendador (cron-job.org): só o admin vê; abre sozinho quando está parado. */
+.disp-agendador {
+  margin-top: var(--s-4);
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--panel);
+}
+.disp-agendador summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  font-weight: 600;
+}
+.disp-agendador .hint {
+  margin: 10px 0;
+}
+.disp-motivo {
+  display: block;
+  min-width: 160px;
+  max-width: 220px;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: var(--fs-1);
+  line-height: 1.35;
+}
+.disp-cancelar {
+  display: block;
+  margin-top: 4px;
+  padding: 0;
+  font-size: var(--fs-1);
+}
 .disp-chip {
   display: flex;
   align-items: center;

@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { query } from "@/lib/db";
 import { getSessao } from "@/lib/auth";
 import { agentesDaSessao } from "@/lib/escopo";
+import { garantirSegredo } from "@/lib/config";
+import { ultimaExecucao, AGENDADOR_PARADO_MIN } from "@/lib/agendador";
 
 export const dynamic = "force-dynamic";
 
@@ -21,7 +23,8 @@ export async function GET() {
 
   const linhas = await query(
     `SELECT
-        c.id, c.titulo, c.status, c.total, c.enviados, c.falhas,
+        c.id, c.titulo, c.status, c.total, c.enviados, c.falhas, c.motivo,
+        (c.agendado_para IS NOT NULL) AS agendado,
         to_char(c.criado_em,'DD/MM HH24:MI') AS criado_fmt,
         to_char(c.agendado_para,'DD/MM HH24:MI') AS agendado_fmt,
         a.candidato AS agente_nome,
@@ -59,5 +62,14 @@ export async function GET() {
        FROM campanhas c ${filtroCand}`
   ))[0];
 
-  return NextResponse.json({ campanhas: linhas, resumo });
+  // Agendador (cron-job.org): quando rodou por último. O token da URL só vai
+  // para o admin, que é quem configura o cron-job.org.
+  const ultima = await ultimaExecucao();
+  const agendador = {
+    ultima,
+    parado: !ultima || Date.now() - new Date(ultima).getTime() > AGENDADOR_PARADO_MIN * 60000,
+    token: s.perfil === "ADMIN" ? await garantirSegredo("AGENDADOR_TOKEN") : null,
+  };
+
+  return NextResponse.json({ campanhas: linhas, resumo, agendador });
 }
