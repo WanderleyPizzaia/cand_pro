@@ -50,7 +50,7 @@ export async function urlWebhookEvolution(origin: string): Promise<string> {
 }
 
 export async function statusConfig() {
-  const [url, apikey, claude, gcal, n8nUrl, n8nToken, n8nAgente, metaSecret, iaKey, igSecret] = await Promise.all([
+  const [url, apikey, claude, gcal, n8nUrl, n8nToken, n8nAgente, metaSecret, iaKey, igSecret, igRepasse] = await Promise.all([
     getConfig("EVOLUTION_URL"),
     getConfig("EVOLUTION_APIKEY"),
     getConfig("ANTHROPIC_API_KEY"),
@@ -61,6 +61,7 @@ export async function statusConfig() {
     getConfig("META_APP_SECRET"),
     getConfig("IA_API_KEY"),
     getConfig("INSTAGRAM_APP_SECRET"),
+    getConfig("INSTAGRAM_REPASSE_URL"),
   ]);
   return {
     evolutionUrl: !!url,
@@ -76,5 +77,6 @@ export async function statusConfig() {
     n8nAgenteUrl: !!n8nAgente,
     metaAppSecret: !!metaSecret,
     instagramAppSecret: !!igSecret,
+    instagramRepasse: !!igRepasse,
   };
 }

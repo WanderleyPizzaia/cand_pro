@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { queryOne, execute } from "@/lib/db";
 import { getSessao } from "@/lib/auth";
 import { agentesDaSessao } from "@/lib/escopo";
-import { garantirSegredo } from "@/lib/config";
+import { garantirSegredo, getConfig } from "@/lib/config";
 import { contaDoToken } from "@/lib/instagram";
 import { contarConversasIG } from "@/lib/instagramWebhook";
 
@@ -23,8 +23,19 @@ export async function GET(req: NextRequest) {
   const id = Number(new URL(req.url).searchParams.get("agente"));
   const s = id ? await acesso(id) : null;
   if (!s) return NextResponse.json({ erro: "Acesso negado" }, { status: 403 });
-  const a = await queryOne<{ ig_user_id: string | null; ig_username: string | null; ig_ativo: boolean; tem_token: boolean }>(
-    "SELECT ig_user_id, ig_username, ig_ativo, (ig_token IS NOT NULL) AS tem_token FROM agentes WHERE id = $1",
+  const a = await queryOne<{
+    ig_user_id: string | null;
+    ig_username: string | null;
+    ig_ativo: boolean;
+    tem_token: boolean;
+    renovado: string | null;
+    expira: string | null;
+    ig_token_erro: string | null;
+  }>(
+    `SELECT ig_user_id, ig_username, ig_ativo, (ig_token IS NOT NULL) AS tem_token, ig_token_erro,
+            to_char(ig_token_renovado_em AT TIME ZONE 'America/Sao_Paulo', 'DD/MM/YYYY') AS renovado,
+            to_char(ig_token_expira_em AT TIME ZONE 'America/Sao_Paulo', 'DD/MM/YYYY') AS expira
+       FROM agentes WHERE id = $1`,
     [id]
   );
   if (!a) return NextResponse.json({ erro: "Número não encontrado" }, { status: 404 });
@@ -35,9 +46,19 @@ export async function GET(req: NextRequest) {
     conta_id: a.ig_user_id,
     ativo: a.ig_ativo,
     conversas: await contarConversasIG(id),
+    token_renovado: a.renovado,
+    token_expira: a.expira,
+    token_erro: a.ig_token_erro,
     // Para o n8n repassar os eventos (token na URL): só o admin configura.
     repasse_token: admin ? await garantirSegredo("INSTAGRAM_WEBHOOK_TOKEN") : null,
+    // Modo direto (sem n8n): o que se cola no app da Meta, e o que falta.
     verify_token: admin ? await garantirSegredo("INSTAGRAM_VERIFY_TOKEN") : null,
+    direto: admin
+      ? {
+          segredo_ok: !!(await getConfig("INSTAGRAM_APP_SECRET")).trim(),
+          repasse_ok: !!(await getConfig("INSTAGRAM_REPASSE_URL")).trim(),
+        }
+      : null,
   });
 }
 
@@ -60,7 +81,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ erro: `Esta conta já está ligada a ${outro.candidato}.` }, { status: 409 });
     // Conecta DESLIGADO: a IA só responde depois que alguém ligar de propósito.
     await execute(
-      "UPDATE agentes SET ig_token = $1, ig_user_id = $2, ig_username = $3, ig_ativo = false WHERE id = $4",
+      `UPDATE agentes SET ig_token = $1, ig_user_id = $2, ig_username = $3, ig_ativo = false,
+              ig_token_renovado_em = now(), ig_token_expira_em = NULL, ig_token_erro = NULL
+        WHERE id = $4`,
       [token, c.userId, c.username || null, id]
     );
     return NextResponse.json({ ok: true, usuario: c.username, conta_id: c.userId });
@@ -72,7 +95,9 @@ export async function POST(req: NextRequest) {
   }
   if (b.acao === "desconectar") {
     await execute(
-      "UPDATE agentes SET ig_token = NULL, ig_user_id = NULL, ig_username = NULL, ig_ativo = false WHERE id = $1",
+      `UPDATE agentes SET ig_token = NULL, ig_user_id = NULL, ig_username = NULL, ig_ativo = false,
+              ig_token_renovado_em = NULL, ig_token_expira_em = NULL, ig_token_erro = NULL
+        WHERE id = $1`,
       [id]
     );
     return NextResponse.json({ ok: true });
