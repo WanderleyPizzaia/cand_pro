@@ -20,6 +20,10 @@ const PUBLICAS = [
   "/api/campanhas/callback",
   // Agendador de disparos chamado pelo cron-job.org: sem cookie, protegido por token.
   "/api/campanhas/agendador",
+  // Instagram: webhook (assinatura da Meta ou token do repasse do n8n) e o
+  // arquivo da galeria por link assinado, que o Instagram baixa sem login.
+  "/api/instagram/webhook",
+  "/api/midia/",
   // Resposta da IA orquestrada pelo n8n (Tarefa B): sem cookie, protegido por token.
   "/api/agente/responder",
 ];

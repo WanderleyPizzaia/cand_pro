@@ -2661,6 +2661,36 @@
 }
 
 /* Galeria do agente (arquivos que a IA pode enviar) */
+/* Instagram do agente e selo do Direct no Atendimento */
+.ig-bloco {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+}
+.ig-conectar {
+  display: flex;
+  gap: var(--s-2);
+}
+.ig-conectar input {
+  flex: 1;
+  min-width: 0;
+}
+.ig-repasse summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.ig-repasse ol {
+  margin: 8px 0;
+  padding-left: 18px;
+}
+.ig-repasse li + li {
+  margin-top: 4px;
+}
+.at-canal-ig {
+  margin-right: 4px;
+  vertical-align: -2px;
+  color: #e1306c;
+}
 .galeria-topo {
   display: flex;
   align-items: center;

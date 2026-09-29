@@ -445,6 +445,39 @@ Status: `agendada` → `enviando` → `enviada`, ou `pausada`, `expirada`,
 `cancelada`, `erro`. O envio em si (`lib/disparo.ts`) é o mesmo do disparo
 imediato.
 
+### Instagram (Direct)
+A conta profissional do Instagram de cada candidato se conecta em **Agentes →
+Instagram**: cola-se o token de acesso (API do Instagram com login do
+Instagram, `graph.instagram.com`) e o sistema descobre a conta (`user_id`,
+que é o `entry.id` do webhook). A conta entra **desligada**, e o interruptor
+"IA responde no Direct" (`agentes.ig_ativo`) é separado do WhatsApp. O token
+fica só no servidor.
+
+Eventos chegam em `POST /api/instagram/webhook` de dois jeitos:
+- **Repasse do n8n (fase de teste):** o fluxo atual do n8n continua recebendo a
+  Meta e, com um IF logo depois de "Responder 200 à Meta", repassa só a conta de
+  teste para `…/api/instagram/webhook?token=INSTAGRAM_WEBHOOK_TOKEN`. As outras
+  contas seguem no n8n. O passo a passo e a URL aparecem para o admin no painel.
+- **Meta direto (depois):** com o callback do app apontando para o sistema, a
+  assinatura `X-Hub-Signature-256` é conferida com `INSTAGRAM_APP_SECRET`
+  (Configurações), e a verificação `GET` usa `INSTAGRAM_VERIFY_TOKEN`.
+
+A rota responde na hora e trabalha em seguida (`waitUntil`). Regras
+(`lib/instagramWebhook.ts`), as mesmas do fluxo do n8n:
+- conversa com contato `ig:<IGSID>`, nunca confundida com telefone;
+- reenvio da Meta (mesmo `mid`) é descartado;
+- mensagens em sequência são agrupadas (`INSTAGRAM_AGRUPAR_SEG`, padrão 8 s):
+  só a última dispara a resposta;
+- eco que o sistema não enviou = humano pelo app, e a IA pausa. `#pausa` e
+  `#bot` (ou `/ia`) controlam na mão.
+
+A resposta usa `responderIA`, com a mesma persona, treino, limites e galeria do
+número, e com um aviso de canal (sem negrito). Mensagens acima de 1000 bytes são
+partidas. A imagem da galeria vai por link público assinado (`/api/midia/<id>?s=`),
+e o PDF vai como link em texto. A equipe responde pelo Atendimento só com texto.
+O contato vira pessoa com `ig_id` e `instagram`, **sem** `whatsapp`, então fica
+fora dos disparos. Comentários ainda não são tratados: ficam no n8n.
+
 ### Google Calendar
 Embed (iframe) do calendário configurado em `GOOGLE_CALENDAR_SRC`. Atualiza em
 tempo real; é só espelhamento (leitura).
@@ -495,6 +528,9 @@ Todas em `force-dynamic`. Salvo indicação, exigem sessão.
 | `/api/galeria/[id]` | GET | O arquivo em si (miniatura e bolha da conversa), para quem vê aquele número |
 | `/api/campanhas` | GET, POST, DELETE | Histórico / dispara ou agenda (`agendado_para`) / cancela agendado (`?id=`) |
 | `/api/campanhas/agendador` | GET, POST | Envia os agendados vencidos. Sem sessão, com `?token=AGENDADOR_TOKEN` (cron-job.org) ou `Bearer CRON_SECRET` |
+| `/api/instagram/webhook` | GET, POST | Eventos do Direct. Sem sessão: `?token=INSTAGRAM_WEBHOOK_TOKEN` (repasse do n8n) ou assinatura da Meta; GET = verificação |
+| `/api/instagram/conta` | GET, POST | Conta do Instagram do número (`?agente=`). POST `acao`: `conectar` (token), `ligar`, `desconectar` (ADMIN/COORDENACAO) |
+| `/api/midia/[id]` | GET | Arquivo da galeria por link assinado (`?s=`), sem login, para o Instagram baixar |
 | `/api/disparos/monitor` | GET | Campanhas com entregues/lidos/responderam, resumo e estado do agendador (token só para o ADMIN) |
 
 ---

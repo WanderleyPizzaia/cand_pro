@@ -20,7 +20,9 @@ export const COMANDO = "/ia";
 // expirar, ou alguém da equipe respondeu há menos de N horas).
 // Pede os aliases `at` (atendimentos) e `ag` (agentes) na consulta.
 const HORAS_PAUSA = `COALESCE(ag.config->'limites'->>'pausa_humana_horas', '6')`;
-export const SQL_IA_RESPONDENDO = `(COALESCE(ag.ativo, 0) = 1 AND NOT EXISTS (
+// No Direct (contato 'ig:') vale o liga/desliga do Instagram, não o do WhatsApp.
+export const SQL_IA_RESPONDENDO = `((CASE WHEN at.contato LIKE 'ig:%' THEN COALESCE(ag.ig_ativo, false)
+                                   ELSE COALESCE(ag.ativo, 0) = 1 END) AND NOT EXISTS (
     SELECT 1 FROM atendimento_pausado p
      WHERE p.agente_id = at.agente_id AND p.contato = at.contato
        AND (p.tipo = 'comando'
@@ -29,9 +31,12 @@ export const SQL_IA_RESPONDENDO = `(COALESCE(ag.ativo, 0) = 1 AND NOT EXISTS (
 
 // Etiquetas do contato da conversa: o contato DAQUELE candidato (agente_id).
 // Junta como `et` (pede o alias `at` de atendimentos).
+// Contato do Instagram casa pelo ig_id; o do WhatsApp, pelos dígitos do número.
+export const SQL_CASA_CONTATO = `((at.contato LIKE 'ig:%' AND ig_id = substr(at.contato, 4))
+        OR (at.contato NOT LIKE 'ig:%' AND regexp_replace(COALESCE(whatsapp,''),'\\D','','g') = at.contato))`;
 export const SQL_JOIN_ETIQUETAS = `LEFT JOIN LATERAL (
     SELECT etiquetas FROM pessoas
-     WHERE regexp_replace(COALESCE(whatsapp,''),'\\D','','g') = at.contato
+     WHERE ${SQL_CASA_CONTATO}
        AND agente_id = at.agente_id
      ORDER BY id LIMIT 1
   ) et ON true`;

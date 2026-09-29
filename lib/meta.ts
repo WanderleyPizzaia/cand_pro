@@ -8,6 +8,7 @@ import {
   type MidiaEnvio,
 } from "./evolution";
 import { paraOggOpus } from "./audioConv";
+import { ehInstagram, enviarTextoInstagram, enviarImagemInstagram } from "./instagram";
 import type { Agente, TemplateVar } from "./db";
 
 // ============================================================
@@ -169,12 +170,20 @@ export async function enviarMidiaMeta(
   }
 }
 
+// Pelo Instagram a equipe manda texto; imagem e áudio exigem link público.
+const SO_TEXTO_IG = "No Instagram, por aqui só vai texto (imagem: use a galeria do agente)";
+
 // Dispatcher: envia um arquivo da galeria pelo provedor do agente.
 export async function enviarMidiaAgente(
   agente: Agente,
   numero: string,
   m: MidiaEnvio
 ): Promise<{ ok: boolean; waId?: string | null; erro?: string }> {
+  // Instagram só recebe imagem por URL pública (a galeria monta essa URL).
+  if (ehInstagram(numero))
+    return m.tipo === "imagem" && /^https?:\/\//.test(m.midia)
+      ? enviarImagemInstagram(agente, numero, m.midia)
+      : { ok: false, erro: "Instagram: só imagem por link público" };
   if (agente.provedor === "meta")
     return enviarMidiaMeta(agente.meta_phone_id || "", agente.meta_token || "", numero, m);
   if (!agente.instancia) return { ok: false, erro: "Agente sem instância configurada." };
@@ -189,6 +198,7 @@ export async function enviarImagemAgente(
   mime = "image/jpeg",
   legenda = ""
 ): Promise<{ ok: boolean; waId?: string | null; erro?: string }> {
+  if (ehInstagram(numero)) return { ok: false, erro: SO_TEXTO_IG };
   if (agente.provedor === "meta")
     return enviarImagemMeta(agente.meta_phone_id || "", agente.meta_token || "", numero, base64, mime, legenda);
   if (!agente.instancia) return { ok: false, erro: "Agente sem instância configurada." };
@@ -202,6 +212,7 @@ export async function enviarAudioAgente(
   base64: string,
   mime = "audio/ogg"
 ): Promise<{ ok: boolean; waId?: string | null; erro?: string }> {
+  if (ehInstagram(numero)) return { ok: false, erro: SO_TEXTO_IG };
   if (agente.provedor === "meta")
     return enviarAudioMeta(agente.meta_phone_id || "", agente.meta_token || "", numero, base64, mime);
   if (!agente.instancia) return { ok: false, erro: "Agente sem instância configurada." };
@@ -428,6 +439,8 @@ export async function enviarMensagemAgente(
   numero: string,
   texto: string
 ): Promise<{ ok: boolean; waId?: string | null; erro?: string }> {
+  // Conversa do Direct: sai pelo Instagram, nunca pelo WhatsApp.
+  if (ehInstagram(numero)) return enviarTextoInstagram(agente, numero, texto);
   if (agente.provedor === "meta") {
     return enviarTextoMeta(agente.meta_phone_id || "", agente.meta_token || "", numero, texto);
   }

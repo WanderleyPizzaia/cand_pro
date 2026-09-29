@@ -17,6 +17,7 @@ type Status = {
   n8nToken: boolean;
   n8nAgenteUrl: boolean;
   metaAppSecret: boolean;
+  instagramAppSecret: boolean;
 };
 
 type Aba = "usuarios" | "integracoes" | "cargos" | "senha";

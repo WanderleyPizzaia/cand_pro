@@ -84,6 +84,8 @@ export type Pessoa = {
   criado_por: string | null;
   criado_em: string;
   etiquetas?: string[];
+  // Id do contato no Instagram (IGSID), quando ele chegou pelo Direct.
+  ig_id?: string | null;
 };
 
 export type Agente = {
@@ -100,6 +102,12 @@ export type Agente = {
   meta_phone_id: string | null;
   meta_token: string | null;
   meta_waba_id: string | null;
+  // Instagram (API do Instagram com login do Instagram). ig_user_id é o id da
+  // conta profissional que chega no webhook (entry.id); o token nunca vai à tela.
+  ig_user_id?: string | null;
+  ig_username?: string | null;
+  ig_token?: string | null;
+  ig_ativo?: boolean | null;
   // Config variável (ferramentas/atendimento) — editável pelo candidato e lida pelo n8n.
   config: AgenteConfig;
   // Cota diária de disparos deste agente. NULL = usa o padrão do provedor
@@ -404,7 +412,7 @@ async function limparDemoAntiga() {
 // aí o próximo boot roda as migrações uma vez e volta a pular. Isto é o que
 // deixa o app rápido: sem o gate, cada lambda fria repetia ~50 comandos DDL +
 // seeds antes da 1ª consulta (o "demora no primeiro clique").
-const SCHEMA_V = "2026-09-29.agendador";
+const SCHEMA_V = "2026-09-29.instagram";
 
 async function inicializar() {
   // Gate barato: garante a tabela config e, se o schema já está na versão
@@ -523,6 +531,15 @@ async function inicializar() {
   await pool.query(
     `CREATE INDEX IF NOT EXISTS idx_campanhas_agendador ON campanhas (status, agendado_para) WHERE agendado_para IS NOT NULL`
   );
+  // Instagram: conta conectada por candidato (agente) e o contato do Direct.
+  // A conversa do Instagram usa contato = 'ig:<IGSID>' (nunca é telefone).
+  await pool.query(`ALTER TABLE agentes ADD COLUMN IF NOT EXISTS ig_user_id TEXT`);
+  await pool.query(`ALTER TABLE agentes ADD COLUMN IF NOT EXISTS ig_username TEXT`);
+  await pool.query(`ALTER TABLE agentes ADD COLUMN IF NOT EXISTS ig_token TEXT`);
+  await pool.query(`ALTER TABLE agentes ADD COLUMN IF NOT EXISTS ig_ativo BOOLEAN NOT NULL DEFAULT false`);
+  await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_agentes_ig_user ON agentes (ig_user_id) WHERE ig_user_id IS NOT NULL`);
+  await pool.query(`ALTER TABLE pessoas ADD COLUMN IF NOT EXISTS ig_id TEXT`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_pessoas_ig_id ON pessoas (ig_id) WHERE ig_id IS NOT NULL`);
   // Metas: alvo de captação por candidato (ou global) com progresso calculado ao vivo.
   await pool.query(`
     CREATE TABLE IF NOT EXISTS metas (
