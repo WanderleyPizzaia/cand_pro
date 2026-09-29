@@ -4,11 +4,8 @@ import { getSessao } from "@/lib/auth";
 import { getConfig } from "@/lib/config";
 import { normalizarNumero } from "@/lib/evolution";
 import { agentesDaSessao, resolverEscopoAtual, filtroPessoas } from "@/lib/escopo";
-import {
-  enviarMensagemAgente,
-  enviarTemplateMeta,
-  listarTemplatesMeta,
-} from "@/lib/meta";
+import { listarTemplatesMeta } from "@/lib/meta";
+import { personalizar, montarVarsTemplate, enviarParaPessoa } from "@/lib/disparo";
 
 export const dynamic = "force-dynamic";
 // Envio síncrono em paralelo (blocos de CONCORRENCIA). Damos mais tempo à função.
@@ -26,41 +23,6 @@ function autorizado() {
   const s = getSessao();
   if (!s || !["ADMIN", "COORDENACAO", "CANDIDATO"].includes(s.perfil)) return null;
   return s;
-}
-
-function personalizar(msg: string, p: Pessoa): string {
-  const primeiro = (p.nome || "").split(" ")[0];
-  return msg
-    .replace(/\{nome\}/gi, p.nome || "")
-    .replace(/\{primeiro_nome\}/gi, primeiro)
-    .replace(/\{cidade\}/gi, p.cidade || "");
-}
-
-// Valor de uma variável do template a partir da coluna mapeada de `pessoas`.
-function valorCampo(campo: string | null, p: Pessoa): string {
-  if (!campo) return "";
-  if (campo === "primeiro_nome") return (p.nome || "").split(" ")[0];
-  const v = (p as any)[campo];
-  return v == null ? "" : String(v);
-}
-
-// Monta os parâmetros do CORPO do template na ordem de `pos` — um por {{n}}.
-// É isto que conserta o erro (#131009): antes mandávamos SEMPRE 0 ou 1 variável,
-// ignorando quantas o template realmente tem. Prioridade por variável:
-//   1) campo mapeado em `pessoas`  2) mensagem livre (só se houver 1 variável
-//   sem campo)  3) exemplo do template — nunca vazio (a Meta rejeita vazio).
-function montarVarsTemplate(vars: TemplateVar[], p: Pessoa, mensagem: string): string[] {
-  const ord = [...vars].sort((a, b) => a.pos - b.pos);
-  return ord.map((v) => {
-    let val = valorCampo(v.campo, p).trim();
-    if (!val && !v.campo && ord.length === 1 && mensagem.trim())
-      val = personalizar(mensagem, p).trim();
-    // Campo de NOME vazio (contato sem nome salvo): usa cumprimento neutro em
-    // vez do exemplo do template (senão sairia "Olá Maria!" pra todo mundo).
-    if (!val && (v.campo === "nome" || v.campo === "primeiro_nome")) val = "amigo(a)";
-    if (!val) val = (v.exemplo || "").trim() || "-";
-    return val;
-  });
 }
 
 // GET                 -> histórico de campanhas
@@ -254,11 +216,16 @@ export async function POST(req: NextRequest) {
   // Só usa o n8n com N8N_TOKEN: sem ele o callback de status seria recusado.
   const usarN8n = !!n8nUrl && !!(await getConfig("N8N_TOKEN")).trim();
 
+  // Agendado: data válida e pelo menos 30 s à frente (senão envia agora).
+  const agendadoDt = agendadoRaw ? new Date(agendadoRaw) : null;
+  const agendar = !!agendadoDt && !isNaN(agendadoDt.getTime()) && agendadoDt.getTime() > Date.now() + 30000;
+
   // Cota diária: quanto ainda resta enviar hoje por este agente (fuso SP).
+  // O agendado confere a cota do dia do envio (lib/agendador.ts), não a de hoje.
   const quota = quotaEfetiva(agente);
   const usadoHoje = await disparosUsadosHoje(agente.id);
   const saldo = Math.max(0, quota - usadoHoje);
-  if (saldo <= 0)
+  if (saldo <= 0 && !agendar)
     return NextResponse.json(
       { erro: `Cota diária esgotada para ${agente.candidato} (${quota}/dia). Tente amanhã ou aumente a cota.` },
       { status: 429 }
@@ -267,7 +234,10 @@ export async function POST(req: NextRequest) {
   // Quantidade desejada (opcional): o operador pode limitar o tamanho do disparo.
   const quantidade = Number(b.quantidade) > 0 ? Math.floor(Number(b.quantidade)) : Infinity;
   // Limite deste disparo = min(teto do modo, saldo da cota do dia, quantidade pedida).
-  const limite = Math.min(usarN8n ? MAX_N8N : MAX, saldo, quantidade);
+  // Agendado vai em lotes a cada minuto: o teto é a cota de um dia inteiro.
+  const limite = agendar
+    ? Math.min(MAX_N8N, quota, quantidade)
+    : Math.min(usarN8n ? MAX_N8N : MAX, saldo, quantidade);
 
   // Deduplica por número (só os dígitos): a base tem contatos repetidos de
   // importações, e sem isso o mesmo número receberia a mensagem 2x e a cota
@@ -290,18 +260,24 @@ export async function POST(req: NextRequest) {
       { status: 400 }
     );
 
-  // ===== AGENDAMENTO: guarda a campanha para disparar depois (não envia agora) =====
-  if (agendadoRaw) {
-    const dt = new Date(agendadoRaw);
-    if (!isNaN(dt.getTime()) && dt.getTime() > Date.now() + 30000) {
-      const ag = await queryOne<{ id: number }>(
-        `INSERT INTO campanhas
-           (titulo, agente_id, mensagem, filtro_cidade, filtro_categoria, total, status, agendado_para, criado_por)
-         VALUES ($1,$2,$3,$4,$5,$6,'agendada',$7,$8) RETURNING id`,
-        [titulo, agente.id, mensagem, cidade || null, categoria || null, destinatarios.length, dt.toISOString(), String(s.uid)]
-      );
-      return NextResponse.json({ id: ag?.id, total: destinatarios.length, agendada: true, agendado_para: dt.toISOString() });
-    }
+  // ===== AGENDAMENTO: guarda a campanha e o público exato (não envia agora) =====
+  // O agendador (lib/agendador.ts, chamado pelo cron-job.org) envia na hora
+  // marcada para ESTES contatos: o que a prévia mostrou, mesmo que a base mude.
+  if (agendar && agendadoDt) {
+    // Um comando só: o agendador nunca vê a campanha sem a lista (e a expiraria).
+    const ag = await queryOne<{ id: number }>(
+      `WITH c AS (
+         INSERT INTO campanhas
+           (titulo, agente_id, mensagem, filtro_cidade, filtro_categoria, total, status, agendado_para, criado_por, template, idioma)
+         VALUES ($1,$2,$3,$4,$5,$6,'agendada',$7,$8,$9,$10) RETURNING id),
+       d AS (
+         INSERT INTO campanha_destinatarios (campanha_id, pessoa_id)
+         SELECT c.id, x FROM c, unnest($11::bigint[]) AS x ON CONFLICT DO NOTHING)
+       SELECT id FROM c`,
+      [titulo, agente.id, mensagem, cidade || null, categoria || null, destinatarios.length,
+       agendadoDt.toISOString(), String(s.uid), template || null, idioma, destinatarios.map((p) => p.id)]
+    );
+    return NextResponse.json({ id: ag?.id, total: destinatarios.length, agendada: true, agendado_para: agendadoDt.toISOString() });
   }
 
   // Variáveis do template Meta: lê a cópia local (guarda pos + campo mapeado das
@@ -433,39 +409,10 @@ export async function POST(req: NextRequest) {
 
   // Agente já validado acima (não-nulo); fixa a referência para o closure.
   const ag = agente;
-  // Envia UM destinatário (Meta template ou Evolution texto) e loga no histórico.
+  const disparo = { mensagem, template, idioma, tplVars, campanhaId: campId };
   async function enviarUm(p: Pessoa): Promise<void> {
-    const numero = normalizarNumero(p.whatsapp || "");
-    if (!numero) {
-      falhas++;
-      return;
-    }
-    const texto = personalizar(mensagem, p);
-    const r = ehMeta
-      ? await enviarTemplateMeta(
-          ag.meta_phone_id!,
-          ag.meta_token!,
-          numero,
-          template,
-          idioma,
-          tplVars ? montarVarsTemplate(tplVars, p, mensagem) : mensagem ? [texto] : []
-        )
-      : await enviarMensagemAgente(ag, numero, texto);
-    if (r.ok) enviados++;
+    if (await enviarParaPessoa(ag, p, disparo)) enviados++;
     else falhas++;
-    await execute(
-      `INSERT INTO mensagens (agente_id, contato, contato_nome, direcao, texto, wa_id, origem, campanha_id)
-       VALUES ($1,$2,$3,$4,$5,$6,'campanha',$7)`,
-      [
-        ag.id,
-        numero,
-        p.nome,
-        r.ok ? "out" : "erro",
-        r.ok ? texto || `[template ${template}]` : `Campanha falhou: ${r.erro}`,
-        r.waId || null,
-        campId,
-      ]
-    );
   }
 
   // Envia em PARALELO, em blocos de CONCORRENCIA por vez. Assim cabe muito mais
@@ -498,4 +445,24 @@ export async function POST(req: NextRequest) {
       { status: 500 }
     );
   }
+}
+
+// DELETE ?id= -> cancela disparo agendado (ainda não saiu, pausado pela cota
+// ou no meio do envio: para no próximo lote). Só dos números da sessão.
+export async function DELETE(req: NextRequest) {
+  const s = autorizado();
+  if (!s) return NextResponse.json({ erro: "Acesso negado" }, { status: 403 });
+  const id = Number(new URL(req.url).searchParams.get("id"));
+  if (!id) return NextResponse.json({ erro: "ID inválido" }, { status: 400 });
+  const meus = await agentesDaSessao(s);
+  const filtro = meus ? `AND agente_id IN (${(meus.length ? meus : [-1]).join(",")})` : "";
+  const n = await execute(
+    `UPDATE campanhas SET status = 'cancelada', processando_ate = NULL, motivo = $2
+      WHERE id = $1 AND agendado_para IS NOT NULL
+        AND status IN ('agendada', 'pausada', 'enviando') ${filtro}`,
+    [id, `Cancelada por ${s.nome || "usuário"}.`]
+  );
+  if (!n)
+    return NextResponse.json({ erro: "Só dá para cancelar disparo agendado que ainda não terminou." }, { status: 404 });
+  return NextResponse.json({ ok: true });
 }

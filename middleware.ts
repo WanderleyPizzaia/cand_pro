@@ -18,6 +18,8 @@ const PUBLICAS = [
   "/api/pagamento/btg/webhook",
   // Callback do n8n (disparo em massa): sem cookie de sessão, protegido por token.
   "/api/campanhas/callback",
+  // Agendador de disparos chamado pelo cron-job.org: sem cookie, protegido por token.
+  "/api/campanhas/agendador",
   // Resposta da IA orquestrada pelo n8n (Tarefa B): sem cookie, protegido por token.
   "/api/agente/responder",
 ];

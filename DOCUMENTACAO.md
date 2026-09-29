@@ -416,6 +416,35 @@ Fluxo do **webhook** (`POST /api/whatsapp/webhook`, público):
 
 > Requer `EVOLUTION_URL`, `EVOLUTION_APIKEY` e `ANTHROPIC_API_KEY` configurados.
 
+### Disparo agendado (cron-job.org)
+A Vercel não mantém processo rodando, então quem acorda o agendador é o
+**cron-job.org**, que chama `GET /api/campanhas/agendador?token=…` a cada
+minuto. O admin copia a URL completa, com o token `AGENDADOR_TOKEN` (gerado na
+primeira vez), no quadro **Agendador automático** da tela Disparos. O quadro
+mostra se o agendador está rodando, e quem agenda com ele parado há mais de 10
+min vê um aviso.
+
+`lib/agendador.ts`:
+- **Público congelado:** ao agendar, os contatos da prévia vão para
+  `campanha_destinatarios`. A campanha sai para exatamente eles, mesmo que a
+  base mude (lista, envio pontual e escopo do usuário respeitados).
+- **Lotes:** cada chamada trabalha ~20 s (o cron-job.org corta em 30 s), em
+  lotes de 10. Campanha grande continua na chamada seguinte. A trava
+  (`processando_ate`) e o `FOR UPDATE SKIP LOCKED` impedem duas chamadas de
+  mandarem a mesma mensagem.
+- **No máximo uma vez:** o contato é marcado `enviando` antes do envio. Se a
+  função cair no meio, ele não recebe de novo e conta como falha.
+- **Cota diária:** esgotou, a campanha fica `pausada` e continua sozinha à
+  meia-noite (SP).
+- **Expirada:** com mais de 2 h de atraso (agendador parado) ou sem lista
+  guardada (agendada antes desta versão), a campanha não sai. O motivo aparece
+  na tela.
+- **Cancelar:** `DELETE /api/campanhas?id=`, enquanto não terminou.
+
+Status: `agendada` → `enviando` → `enviada`, ou `pausada`, `expirada`,
+`cancelada`, `erro`. O envio em si (`lib/disparo.ts`) é o mesmo do disparo
+imediato.
+
 ### Google Calendar
 Embed (iframe) do calendário configurado em `GOOGLE_CALENDAR_SRC`. Atualiza em
 tempo real; é só espelhamento (leitura).
@@ -435,6 +464,7 @@ Definidas em `.env.local` (local) e nas *Environment Variables* da Vercel
 | `ANTHROPIC_API_KEY` | Claude (ou configure na tela) |
 | `GOOGLE_CALENDAR_SRC` | Google Calendar (ou configure na tela) |
 | `AUTH_SECRET` | Segredo do HMAC da sessão (recomendado em produção) |
+| `CRON_SECRET` | Opcional: cron da Vercel (`Authorization: Bearer`) no agendador e no `/api/whatsapp/puxar` |
 
 ---
 
@@ -463,6 +493,9 @@ Todas em `force-dynamic`. Salvo indicação, exigem sessão.
 | `/api/galeria` | GET, POST | Galeria do agente (gestor com `?id=`, candidato no próprio). POST `acao`: `ligar`, `adicionar`, `editar`, `excluir`, `testar` |
 | `/api/pessoas/etiqueta` | POST | Marca/desmarca etiqueta no contato `{id, etiqueta, ligar}` (escopo da lista) |
 | `/api/galeria/[id]` | GET | O arquivo em si (miniatura e bolha da conversa), para quem vê aquele número |
+| `/api/campanhas` | GET, POST, DELETE | Histórico / dispara ou agenda (`agendado_para`) / cancela agendado (`?id=`) |
+| `/api/campanhas/agendador` | GET, POST | Envia os agendados vencidos. Sem sessão, com `?token=AGENDADOR_TOKEN` (cron-job.org) ou `Bearer CRON_SECRET` |
+| `/api/disparos/monitor` | GET | Campanhas com entregues/lidos/responderam, resumo e estado do agendador (token só para o ADMIN) |
 
 ---
 
