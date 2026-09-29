@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.104.1",
+    "@vercel/functions": "^3.9.9",
     "ffmpeg-static": "^5.2.0",
     "leaflet": "^1.9.4",
     "next": "14.2.35",

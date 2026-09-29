@@ -9,6 +9,7 @@ import {
   alternar,
   SQL_IA_RESPONDENDO,
   SQL_JOIN_ETIQUETAS,
+  SQL_CASA_CONTATO,
   gravarEtiqueta,
 } from "@/lib/atendimento";
 import { ehEtiqueta, opostaDe, etiquetasValidas, FILTRO_IA } from "@/lib/etiquetas";
@@ -182,8 +183,12 @@ export async function GET(req: NextRequest) {
             u.nome AS atendente_nome,
             COALESCE(
               NULLIF(m.contato_nome,''),
+              -- a última mensagem pode ser da equipe (sem nome): usa o último nome visto
+              (SELECT contato_nome FROM mensagens
+                WHERE agente_id = at.agente_id AND contato = at.contato AND COALESCE(contato_nome,'') <> ''
+                ORDER BY id DESC LIMIT 1),
               CASE WHEN pe.nome ~ '^[0-9]+$' THEN NULL ELSE pe.nome END,
-              at.contato
+              CASE WHEN at.contato LIKE 'ig:%' THEN 'Instagram' ELSE at.contato END
             ) AS contato_nome,
             pe.foto AS foto,
             m.texto AS ultimo, m.direcao, m.origem,
@@ -206,7 +211,7 @@ export async function GET(req: NextRequest) {
        ) m ON true
        LEFT JOIN LATERAL (
          SELECT nome, foto FROM pessoas
-          WHERE regexp_replace(COALESCE(whatsapp,''),'\\D','','g') = at.contato
+          WHERE ${SQL_CASA_CONTATO}
           ORDER BY (foto IS NOT NULL) DESC, id ASC
           LIMIT 1
        ) pe ON true

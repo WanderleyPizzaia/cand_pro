@@ -3,6 +3,17 @@ import { buscarCidade } from "./cidades";
 import { regiaoMaisProxima } from "./opcoes";
 import { geoDoNumero } from "./ddd";
 import { extrairNomeCidade } from "./ia";
+import { ehInstagram, igsidDe } from "./instagram";
+
+// Chave do contato: telefone (só dígitos) ou, no Direct, o id do Instagram.
+// Contato do Instagram nunca ganha "whatsapp" (senão o disparo tentaria
+// mandar WhatsApp para um número que não existe).
+function chaveDe(numero: string): { ig: string | null; digits: string } {
+  if (ehInstagram(numero)) return { ig: igsidDe(numero), digits: "" };
+  return { ig: null, digits: (numero || "").replace(/\D/g, "") };
+}
+const ONDE_CONTATO = (ig: string | null) =>
+  ig ? "ig_id = $1" : "regexp_replace(COALESCE(whatsapp,''),'\\D','','g') = $1";
 
 // ============================================================
 // Cadastro automático do eleitor a partir da conversa do agente de IA.
@@ -60,20 +71,18 @@ export async function garantirContato(
   nome: string | null,
   criadoPor: string
 ): Promise<number | null> {
-  const digits = (numero || "").replace(/\D/g, "");
-  if (!digits) return null;
+  const { ig, digits } = chaveDe(numero);
+  if (!digits && !ig) return null;
   const existente = await queryOne<{ id: number }>(
-    `SELECT id FROM pessoas
-      WHERE regexp_replace(COALESCE(whatsapp,''),'\\D','','g') = $1 AND agente_id = $2
-      ORDER BY id LIMIT 1`,
-    [digits, agenteId]
+    `SELECT id FROM pessoas WHERE ${ONDE_CONTATO(ig)} AND agente_id = $2 ORDER BY id LIMIT 1`,
+    [ig || digits, agenteId]
   );
   if (existente) return existente.id;
   const geo = resolverGeo(null, digits);
   const novo = await queryOne<{ id: number }>(
-    `INSERT INTO pessoas (nome, categoria, cidade, regiao, whatsapp, lat, lng, agente_id, criado_por)
-     VALUES ($1, 'Eleitor', $2, $3, $4, $5, $6, $7, $8) RETURNING id`,
-    [nomeReal(nome) || "Sem nome", geo.cidade, geo.regiao, digits, geo.lat, geo.lng, agenteId, criadoPor]
+    `INSERT INTO pessoas (nome, categoria, cidade, regiao, whatsapp, lat, lng, agente_id, criado_por, ig_id)
+     VALUES ($1, 'Eleitor', $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id`,
+    [nomeReal(nome) || "Sem nome", geo.cidade, geo.regiao, digits || null, geo.lat, geo.lng, agenteId, criadoPor, ig]
   );
   if (novo && geo.lat != null && geo.lng != null) {
     await execute("UPDATE pessoas SET lat = $1, lng = $2 WHERE id = $3", [
@@ -89,21 +98,20 @@ export async function garantirContato(
 export async function capturarEleitor(
   agente: Agente,
   numero: string,
-  nomePush?: string | null
+  nomePush?: string | null,
+  instagram?: string | null
 ): Promise<void> {
   try {
-    const digits = (numero || "").replace(/\D/g, "");
-    if (!digits) return;
+    const { ig, digits } = chaveDe(numero);
+    if (!digits && !ig) return;
 
     // Respeita o toggle "Cadastrar eleitor no mapa" (Meu Agente).
     // Sem config gravada = ligado (comportamento padrão de fábrica).
     if (agente.config?.ferramentas?.cadastrar_eleitor === false) return;
 
     const existente = await queryOne<{ id: number; nome: string | null; cidade: string | null }>(
-      `SELECT id, nome, cidade FROM pessoas
-        WHERE regexp_replace(COALESCE(whatsapp,''),'\\D','','g') = $1 AND agente_id = $2
-        LIMIT 1`,
-      [digits, agente.id]
+      `SELECT id, nome, cidade FROM pessoas WHERE ${ONDE_CONTATO(ig)} AND agente_id = $2 LIMIT 1`,
+      [ig || digits, agente.id]
     );
 
     // Já tem nome real + cidade -> nada a fazer (não gasta IA).
@@ -148,19 +156,21 @@ export async function capturarEleitor(
     if (geo.lat == null && !nomeFinal) return;
 
     const inserido = await queryOne<{ id: number }>(
-      `INSERT INTO pessoas (nome, categoria, cidade, regiao, whatsapp, lat, lng, agente_id, criado_por, funcao, funcao_outro)
-       VALUES ($1, 'Eleitor', $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id`,
+      `INSERT INTO pessoas (nome, categoria, cidade, regiao, whatsapp, lat, lng, agente_id, criado_por, funcao, funcao_outro, ig_id, instagram)
+       VALUES ($1, 'Eleitor', $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING id`,
       [
         nomeFinal || "Sem nome",
         geo.cidade,
         geo.regiao,
-        digits,
+        digits || null,
         geo.lat,
         geo.lng,
         agente.id,
         CRIADO_POR,
         ex.funcao,
         ex.funcao_outro,
+        ig,
+        instagram || null,
       ]
     );
     // Aplica o jitter agora que temos o id (evita empilhar).

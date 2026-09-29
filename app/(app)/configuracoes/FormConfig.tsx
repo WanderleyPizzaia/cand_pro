@@ -12,6 +12,7 @@ type Status = {
   n8nToken: boolean;
   n8nAgenteUrl: boolean;
   metaAppSecret: boolean;
+  instagramAppSecret: boolean;
 };
 
 const VAZIO = {
@@ -23,6 +24,7 @@ const VAZIO = {
   N8N_TOKEN: "",
   N8N_AGENTE_URL: "",
   META_APP_SECRET: "",
+  INSTAGRAM_APP_SECRET: "",
 };
 
 function Selo({ ok }: { ok: boolean }) {
@@ -121,6 +123,23 @@ export default function FormConfig({ status }: { status: Status }) {
           Obrigatório para receber mensagens pela API oficial: o sistema confere a
           assinatura de cada aviso da Meta. Fica em developers.facebook.com → seu app →
           Configurações do app → Básico → <b>Chave secreta do aplicativo</b>.
+        </small>
+      </div>
+
+      <div className="field">
+        <label>
+          Chave secreta do app do Instagram <Selo ok={status.instagramAppSecret} />
+        </label>
+        <input
+          type="password"
+          placeholder="••••••••"
+          value={f.INSTAGRAM_APP_SECRET}
+          onChange={(e) => set("INSTAGRAM_APP_SECRET", e.target.value)}
+        />
+        <small style={{ color: "var(--muted)", fontSize: 12, marginTop: 4 }}>
+          Só quando o webhook do Instagram apontar direto para o sistema (sem o n8n no meio):
+          confere a assinatura de cada aviso. Fica no app da Meta → Instagram → Configuração da API com login
+          do Instagram → <b>Chave secreta do app do Instagram</b>. As contas se conectam em Agentes → Instagram.
         </small>
       </div>
 

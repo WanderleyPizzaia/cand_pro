@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import CountUp from "../../components/CountUp";
 import Icon from "../../components/Icon";
 import GaleriaAgente from "../../components/GaleriaAgente";
+import InstagramAgente from "../../components/InstagramAgente";
 
 type Agente = {
   id: number;
@@ -74,6 +75,7 @@ export default function AgenteCard({
   const [religando, setReligando] = useState(false);
   const [ajustes, setAjustes] = useState(false);
   const [arquivos, setArquivos] = useState(false);
+  const [insta, setInsta] = useState(false);
   const [f, setF] = useState({
     instancia: agente.instancia || "",
     telefone: agente.telefone || "",
@@ -519,6 +521,9 @@ export default function AgenteCard({
         <button className="btn-link" onClick={() => setArquivos((v) => !v)} aria-expanded={arquivos}>
           <Icon name="image" size={14} /> Santinho e arquivos
         </button>
+        <button className="btn-link" onClick={() => setInsta((v) => !v)} aria-expanded={insta}>
+          <Icon name="instagram" size={14} /> Instagram
+        </button>
         <button className="btn-link" onClick={() => setAjustes((v) => !v)}>
           {ajustes ? "Fechar ajustes" : "Ajustes"} <Icon name={ajustes ? "chevron-down" : "chevron-right"} size={14} />
         </button>
@@ -537,6 +542,12 @@ export default function AgenteCard({
       {arquivos && (
         <div className="agente-form">
           <GaleriaAgente agenteId={agente.id} />
+        </div>
+      )}
+
+      {insta && (
+        <div className="agente-form">
+          <InstagramAgente agenteId={agente.id} />
         </div>
       )}
 

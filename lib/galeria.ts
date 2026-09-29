@@ -1,5 +1,6 @@
 import { query, queryOne, execute, type Agente } from "./db";
 import { enviarMidiaAgente } from "./meta";
+import { ehInstagram, enviarTextoInstagram, origemPublica, urlPublicaGaleria } from "./instagram";
 
 // ============================================================
 // Galeria do agente: arquivos prontos (santinho, plano de governo) que a IA
@@ -141,16 +142,29 @@ export async function enviarArquivoDaGaleria(
   if (!a) return { ok: false, erro: "Arquivo não existe mais na galeria" };
   const vezes = (await enviadosHoje(agente.id, contato)).get(a.id) || 0;
   if (vezes >= REENVIOS_DIA) return { ok: false, erro: "reenvio_limite" };
-  const midia = a.url || a.conteudo || "";
+  let midia = a.url || a.conteudo || "";
   if (!midia) return { ok: false, erro: "Arquivo vazio" };
 
-  const r = await enviarMidiaAgente(agente, contato, {
-    tipo: a.tipo,
-    mime: a.mime,
-    midia,
-    nomeArquivo: a.nome_arquivo || `${a.nome}.${MIMES_GALERIA[a.mime]?.ext || "pdf"}`,
-    legenda: a.legenda || undefined,
-  });
+  // Instagram: baixa a imagem por link público (assinado, só deste arquivo) e
+  // não aceita documento no Direct: o PDF vai como link em texto.
+  let r: { ok: boolean; waId?: string | null; erro?: string };
+  if (ehInstagram(contato)) {
+    const origem = await origemPublica();
+    if (!a.url && !origem) return { ok: false, erro: "Endereço público do sistema desconhecido" };
+    midia = a.url || (await urlPublicaGaleria(origem, a.id));
+    r =
+      a.tipo === "imagem"
+        ? await enviarMidiaAgente(agente, contato, { tipo: "imagem", mime: a.mime, midia, nomeArquivo: a.nome })
+        : await enviarTextoInstagram(agente, contato, `📄 ${a.nome}: ${midia}`);
+  } else {
+    r = await enviarMidiaAgente(agente, contato, {
+      tipo: a.tipo,
+      mime: a.mime,
+      midia,
+      nomeArquivo: a.nome_arquivo || `${a.nome}.${MIMES_GALERIA[a.mime]?.ext || "pdf"}`,
+      legenda: a.legenda || undefined,
+    });
+  }
   await execute(
     `INSERT INTO mensagens (agente_id, contato, contato_nome, direcao, texto, origem, wa_id, status, media, media_tipo)
      VALUES ($1, $2, $3, $4, $5, 'ia', $6, $7, $8, $9)`,

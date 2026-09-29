@@ -11,6 +11,7 @@ import {
   normalizarNumero,
 } from "./evolution";
 import { enviarTextoMeta, enviarTypingMeta } from "./meta";
+import { ehInstagram, enviarTextoInstagram, digitandoInstagram } from "./instagram";
 import { vozDoAgente, sintetizarVoz } from "./voz";
 import {
   galeriaLigada,
@@ -77,7 +78,9 @@ export async function responderIA(
 ): Promise<{ ok: boolean; enviados: number; erro?: string }> {
   const numero = opts.numero;
   const nome = opts.nome ?? null;
-  const ehMeta = agente.provedor === "meta";
+  // Direct do Instagram: canal próprio (contato 'ig:'), sem presença/áudio da Evolution.
+  const ehIG = ehInstagram(numero);
+  const ehMeta = !ehIG && agente.provedor === "meta";
   const limites = limitesDaIA(agente);
 
   // Teto de respostas por contato no dia: segura conversa que não acaba (e a
@@ -130,6 +133,10 @@ export async function responderIA(
     }
   }
 
+  if (ehIG)
+    extra +=
+      "\n\nCANAL: você está respondendo pelo Direct do Instagram. Escreva mensagens curtas, sem markdown e sem *negrito* (o Instagram não formata).";
+
   const resposta = await gerarResposta(
     agente.id,
     agente.persona || "",
@@ -139,7 +146,9 @@ export async function responderIA(
     extra
   );
   // O marcador sai do texto sempre (mesmo com a galeria desligada: nunca vaza).
-  const { texto, alvo } = extrairMarcador(resposta.texto || "");
+  const marcado = extrairMarcador(resposta.texto || "");
+  const alvo = marcado.alvo;
+  const texto = ehIG ? marcado.texto.replace(/\*\*(.+?)\*\*/g, "$1") : marcado.texto;
   const arquivo = resolverArquivo(alvo, galeria);
   if (!resposta.ok || (!texto && !arquivo)) {
     await execute(
@@ -159,7 +168,7 @@ export async function responderIA(
 
   // ── Atraso humano inicial ("pensando") antes de começar a responder ──
   // Config RESPOSTA_ATRASO_SEG = "8-12" (Evolution). Mostra "digitando" no meio.
-  if (!ehMeta) {
+  if (!ehMeta && !ehIG) {
     const cfg = ((await getConfig("RESPOSTA_ATRASO_SEG")) || "").trim();
     const m = cfg.match(/^(\d+)\s*-\s*(\d+)$/);
     if (m) {
@@ -176,7 +185,7 @@ export async function responderIA(
   // ── Resposta em ÁUDIO (voz clonada via ElevenLabs) ──
   // Só quando o agente é Evolution e tem voz configurada (VOZ:<id> + chave global).
   // Envia UM áudio com a resposta completa; se falhar, cai no texto (degradação).
-  if (!ehMeta && texto) {
+  if (!ehMeta && !ehIG && texto) {
     const voz = await vozDoAgente(agente.id);
     const deveAudio = !!voz && (voz.modo === "sempre" || (voz.modo === "quando_audio" && !!opts.entradaAudio));
     if (voz && deveAudio) {
@@ -221,7 +230,12 @@ export async function responderIA(
     if (idx > 0) await dormir(pausaEntreBolhas());
     let envio: { ok: boolean; waId?: string | null; erro?: string };
 
-    if (ehMeta) {
+    if (ehIG) {
+      // Instagram: "digitando…" + atraso curto (o Direct já agrupa as mensagens).
+      await digitandoInstagram(agente, numero);
+      await dormir(Math.min(3000, atrasoDigitando(parte)));
+      envio = await enviarTextoInstagram(agente, numero, parte);
+    } else if (ehMeta) {
       // Meta: "digitando…" pela mensagem recebida + atraso proporcional, depois envia.
       if (opts.waId)
         await enviarTypingMeta(agente.meta_phone_id || "", agente.meta_token || "", opts.waId);

@@ -80,6 +80,9 @@ function Avatar({ foto, nome }: { foto: string | null; nome: string }) {
 
 const VIEWS_VALIDAS: View[] = ["minhas", "fila", "todas", "resolvidas", "equipe"];
 
+// Conversa do Direct: contato 'ig:<id>' (não é telefone).
+const ehIG = (contato: string | null | undefined) => (contato || "").startsWith("ig:");
+
 export default function AtendimentoCliente({ viewInicial }: { viewInicial?: string }) {
   // Links do Início ("Abrir fila") chegam com ?view=fila.
   const [view, setView] = useState<View>(
@@ -696,7 +699,10 @@ export default function AtendimentoCliente({ viewInicial }: { viewInicial?: stri
                   <Avatar foto={c.foto} nome={c.contato_nome || c.contato} />
                   <div className="inbox-conv-body">
                     <div className="inbox-conv-top">
-                      <span className="inbox-conv-nome">{c.contato_nome || c.contato}</span>
+                      <span className="inbox-conv-nome">
+                        {ehIG(c.contato) && <Icon name="instagram" size={13} className="at-canal-ig" />}
+                        {c.contato_nome || (ehIG(c.contato) ? "Instagram" : c.contato)}
+                      </span>
                       <span className="inbox-conv-quando">
                         {(c.quando || "").slice(11)}
                         {naoLida && <span className="inbox-nao-lida-dot" title="Não lida" />}
@@ -744,9 +750,9 @@ export default function AtendimentoCliente({ viewInicial }: { viewInicial?: stri
                   </button>
                   <Avatar foto={sel.foto} nome={sel.contato_nome || sel.contato} />
                   <div className="inbox-head-info">
-                    <b>{sel.contato_nome || sel.contato}</b>
+                    <b>{sel.contato_nome || (ehIG(sel.contato) ? "Instagram" : sel.contato)}</b>
                     <span>
-                      {sel.contato} · {sel.agente_nome || "-"}
+                      {ehIG(sel.contato) ? "Direct do Instagram" : sel.contato} · {sel.agente_nome || "-"}
                       {sel.status === "fila" && " · na fila"}
                       {sel.status === "atribuido" && sel.atendente_nome && ` · ${souDono ? "você" : sel.atendente_nome}`}
                       {sel.status === "resolvido" && " · resolvida"}
@@ -897,6 +903,8 @@ export default function AtendimentoCliente({ viewInicial }: { viewInicial?: stri
                     hidden
                     onChange={(e) => { const f = e.target.files?.[0]; if (f) enviarImagem(f); }}
                   />
+                  {/* Direct: por aqui só texto (imagem vai pela galeria do agente). */}
+                  {!ehIG(sel.contato) && (
                   <button
                     type="button"
                     onClick={() => imgInputRef.current?.click()}
@@ -907,6 +915,7 @@ export default function AtendimentoCliente({ viewInicial }: { viewInicial?: stri
                   >
                     <Icon name="image" size={18} />
                   </button>
+                  )}
                   {eu?.gestor && (
                     <button
                       type="button"
@@ -918,6 +927,7 @@ export default function AtendimentoCliente({ viewInicial }: { viewInicial?: stri
                       <Icon name="zap" size={18} />
                     </button>
                   )}
+                  {!ehIG(sel.contato) && (
                   <button
                     type="button"
                     onClick={alternarGravacao}
@@ -928,6 +938,7 @@ export default function AtendimentoCliente({ viewInicial }: { viewInicial?: stri
                   >
                     <Icon name={gravando ? "square" : "mic"} size={18} />
                   </button>
+                  )}
                   <button type="submit" className="btn btn-primary" disabled={enviando || gravando}>
                     {enviando ? "…" : "Enviar"}
                   </button>
