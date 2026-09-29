@@ -493,6 +493,30 @@
   font-weight: 600;
   white-space: nowrap;
 }
+.integr-head.parcial {
+  color: var(--yellow);
+}
+.integr-badge.atencao {
+  background: var(--yellow-soft);
+  color: var(--yellow);
+}
+.integr-badge.off {
+  background: var(--panel-2);
+  color: var(--muted);
+}
+.dot-estado {
+  display: inline-block;
+  flex: none;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+}
+.dot-estado.atencao {
+  background: var(--yellow);
+}
+.dot-estado.off {
+  background: var(--muted);
+}
 @media (max-width: 640px) {
   .integr-grid {
     grid-template-columns: 1fr;
