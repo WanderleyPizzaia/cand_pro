@@ -70,6 +70,10 @@ async function repassarAoN8n(url: string, corpo: string, assinatura: string | nu
 }
 
 export async function POST(req: NextRequest) {
+  // EMERGÊNCIA: o volume de Direct de uma conta grande esgotou as conexões do
+  // banco e derrubou o sistema inteiro. Pausado: responde 200 à Meta sem tocar
+  // no banco. Para religar: INSTAGRAM_WEBHOOK_PAUSADO=0 na Vercel + redeploy.
+  if (process.env.INSTAGRAM_WEBHOOK_PAUSADO !== "0") return new NextResponse("EVENT_RECEIVED", { status: 200 });
   const raw = await req.text();
   const pedido = await origemDoPedido(req, raw);
   const origemPedido = pedido.origem;
