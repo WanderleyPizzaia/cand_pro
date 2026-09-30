@@ -1,7 +1,7 @@
 import crypto from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { waitUntil } from "@vercel/functions";
-import { query } from "@/lib/db";
+import { query, execute } from "@/lib/db";
 import { getConfig, setConfig, conferirToken, garantirSegredo } from "@/lib/config";
 import { processarEventosIG } from "@/lib/instagramWebhook";
 
@@ -22,16 +22,26 @@ export async function GET(req: NextRequest) {
 //  - a Meta direto: assinatura X-Hub-Signature-256 com o segredo do app do
 //    Instagram (INSTAGRAM_APP_SECRET, em Configurações);
 //  - o n8n repassando a conta de teste: ?token=INSTAGRAM_WEBHOOK_TOKEN.
-async function origemDoPedido(req: NextRequest, raw: string): Promise<"meta" | "n8n" | null> {
+async function origemDoPedido(
+  req: NextRequest,
+  raw: string
+): Promise<{ origem: "meta" | "n8n" | null; motivo?: string }> {
   const segredo = (await getConfig("INSTAGRAM_APP_SECRET")).trim();
   const sig = req.headers.get("x-hub-signature-256") || "";
   if (segredo && sig) {
     const esperado = "sha256=" + crypto.createHmac("sha256", segredo).update(raw).digest("hex");
-    if (sig.length === esperado.length && crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(esperado))) return "meta";
+    if (sig.length === esperado.length && crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(esperado)))
+      return { origem: "meta" };
   }
   const t = req.headers.get("x-candpro-token") || new URL(req.url).searchParams.get("token") || "";
-  if (t && (await conferirToken("INSTAGRAM_WEBHOOK_TOKEN", t)) === "ok") return "n8n";
-  return null;
+  if (t && (await conferirToken("INSTAGRAM_WEBHOOK_TOKEN", t)) === "ok") return { origem: "n8n" };
+  // Motivo em português para o painel (a Meta não mostra nada a ninguém).
+  const motivo = sig
+    ? segredo
+      ? "a assinatura da Meta não confere: a Chave secreta do app do Instagram em Configurações está errada (não é a chave de Configurações do app → Básico)"
+      : "falta a Chave secreta do app do Instagram em Configurações"
+    : "pedido sem assinatura da Meta nem token do n8n";
+  return { origem: null, motivo };
 }
 
 // Repassa ao n8n o que é de conta que NÃO está conectada aqui (migração conta a
@@ -61,8 +71,13 @@ async function repassarAoN8n(url: string, corpo: string, assinatura: string | nu
 
 export async function POST(req: NextRequest) {
   const raw = await req.text();
-  const origemPedido = await origemDoPedido(req, raw);
-  if (!origemPedido) return NextResponse.json({ erro: "Não autorizado" }, { status: 401 });
+  const pedido = await origemDoPedido(req, raw);
+  const origemPedido = pedido.origem;
+  if (!origemPedido) {
+    // Guarda a última recusa para o painel do Instagram explicar o que houve.
+    await setConfig("INSTAGRAM_WEBHOOK_RECUSA", JSON.stringify({ quando: new Date().toISOString(), motivo: pedido.motivo }));
+    return NextResponse.json({ erro: "Não autorizado" }, { status: 401 });
+  }
   let body: any;
   try {
     body = JSON.parse(raw);
@@ -89,6 +104,9 @@ export async function POST(req: NextRequest) {
     ).map((a) => a.ig_user_id)
   );
   const minhas = entradas.filter((e) => conectadas.has(String(e?.id || "")));
+  // Diagnóstico: a Meta está entregando para estas contas.
+  if (conectadas.size)
+    await execute("UPDATE agentes SET ig_ultimo_evento_em = now() WHERE ig_user_id = ANY($1::text[])", [Array.from(conectadas)]);
   const outras = entradas.filter((e) => !conectadas.has(String(e?.id || "")));
 
   // Só repassa o que veio da Meta (o que veio do n8n já é dele: repassar de

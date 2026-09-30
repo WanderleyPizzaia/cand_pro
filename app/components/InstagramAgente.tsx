@@ -12,6 +12,9 @@ type Estado = {
   token_renovado: string | null;
   token_expira: string | null;
   token_erro: string | null;
+  ultimo_evento: string | null;
+  assinatura: { ok: boolean; mensagens: boolean; erro?: string } | null;
+  recusa: { quando: string; motivo: string } | null;
   repasse_token: string | null;
   verify_token: string | null;
   direto: { segredo_ok: boolean; repasse_ok: boolean } | null;
@@ -67,7 +70,10 @@ export default function InstagramAgente({ agenteId }: { agenteId: number }) {
         body: JSON.stringify({ agente_id: agenteId, ...corpo }),
       });
       const j = await r.json().catch(() => ({}));
-      setMsg(r.ok ? { t: "ok", x: ok } : { t: "err", x: j.erro || "Algo deu errado." });
+      // Conectou, mas a Meta não aceitou assinar a conta no webhook: avisa.
+      if (r.ok && j.assinada === false)
+        setMsg({ t: "err", x: `Conta conectada, mas não consegui assiná-la no webhook: ${j.erro_assinatura || "erro da Meta"}.` });
+      else setMsg(r.ok ? { t: "ok", x: ok } : { t: "err", x: j.erro || "Algo deu errado." });
       if (r.ok) {
         setToken("");
         await carregar();
@@ -141,6 +147,39 @@ export default function InstagramAgente({ agenteId }: { agenteId: number }) {
               <span className="dot" />
             </button>
           </div>
+
+          {/* Diagnóstico (admin): a Meta está entregando o Direct desta conta? */}
+          {d.assinatura && (
+            <div className="ig-diagnostico">
+              {!d.assinatura.ok ? (
+                <div className="msg err">Não consegui consultar a assinatura da conta: {d.assinatura.erro}</div>
+              ) : d.assinatura.mensagens ? (
+                <small className="hint">
+                  <span className="txt-ok">✓</span> Conta assinada no webhook (mensagens).{" "}
+                  {d.ultimo_evento
+                    ? `Último aviso da Meta: ${d.ultimo_evento}.`
+                    : "Nenhum aviso da Meta chegou para esta conta ainda."}
+                </small>
+              ) : (
+                <div className="msg warn">
+                  Esta conta não está assinada no webhook: a Meta não entrega as mensagens dela.{" "}
+                  <button
+                    type="button"
+                    className="btn-link"
+                    disabled={ocupado}
+                    onClick={() => acao({ acao: "assinar" }, "Conta assinada no webhook.")}
+                  >
+                    Assinar agora
+                  </button>
+                </div>
+              )}
+              {d.recusa && (
+                <div className="msg err">
+                  Em {d.recusa.quando} a Meta tentou entregar um aviso e o sistema recusou: {d.recusa.motivo}.
+                </div>
+              )}
+            </div>
+          )}
 
           {d.token_erro ? (
             <div className="msg err">
