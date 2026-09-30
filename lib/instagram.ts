@@ -105,6 +105,28 @@ export async function perfilInstagram(ag: Agente, igsid: string): Promise<{ nome
   return { nome: r.d?.name || null, username: r.d?.username || null };
 }
 
+// Assinatura da CONTA no webhook do app. Na API com login do Instagram a URL
+// de retorno é do app, mas cada conta precisa estar assinada, senão a Meta não
+// manda as mensagens dela (mesmo com a URL verificada).
+export async function camposAssinados(token: string): Promise<{ ok: boolean; campos: string[]; erro?: string }> {
+  const r = await chamar(token, "me/subscribed_apps");
+  if (!r.ok) return { ok: false, campos: [], erro: traduzirErro(r.d, r.status) };
+  const lista = Array.isArray(r.d?.data) ? r.d.data : [];
+  const campos = lista.flatMap((a: any) =>
+    Array.isArray(a?.subscribed_fields) ? a.subscribed_fields : String(a?.subscribed_fields || "").split(",")
+  );
+  return { ok: true, campos: Array.from(new Set(campos.map((c: any) => String(c).trim()).filter(Boolean))) as string[] };
+}
+
+// Soma "messages" ao que a conta já assina (não tira comentários, se houver).
+export async function assinarMensagens(token: string): Promise<{ ok: boolean; campos: string[]; erro?: string }> {
+  const atual = await camposAssinados(token);
+  const campos = Array.from(new Set([...(atual.ok ? atual.campos : []), "messages"]));
+  const r = await chamar(token, "me/subscribed_apps", { subscribed_fields: campos.join(",") });
+  if (!r.ok) return { ok: false, campos: atual.campos, erro: traduzirErro(r.d, r.status) };
+  return { ok: true, campos };
+}
+
 // Dados da conta a partir do token (ao conectar). user_id é o id que chega no
 // webhook (entry.id); o id "app-scoped" não serve para rotear.
 export async function contaDoToken(token: string): Promise<{ ok: boolean; userId?: string; username?: string; erro?: string }> {

@@ -2710,6 +2710,11 @@
 .ig-repasse li + li {
   margin-top: 4px;
 }
+.ig-diagnostico {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+}
 .ig-copiar {
   display: inline-flex;
   flex-wrap: wrap;

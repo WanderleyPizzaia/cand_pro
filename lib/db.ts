@@ -415,7 +415,7 @@ async function limparDemoAntiga() {
 // aí o próximo boot roda as migrações uma vez e volta a pular. Isto é o que
 // deixa o app rápido: sem o gate, cada lambda fria repetia ~50 comandos DDL +
 // seeds antes da 1ª consulta (o "demora no primeiro clique").
-const SCHEMA_V = "2026-09-29.instagram-direto";
+const SCHEMA_V = "2026-09-30.instagram-diagnostico";
 
 async function inicializar() {
   // Gate barato: garante a tabela config e, se o schema já está na versão
@@ -545,6 +545,8 @@ async function inicializar() {
   await pool.query(`ALTER TABLE agentes ADD COLUMN IF NOT EXISTS ig_token_renovado_em TIMESTAMPTZ`);
   await pool.query(`ALTER TABLE agentes ADD COLUMN IF NOT EXISTS ig_token_expira_em TIMESTAMPTZ`);
   await pool.query(`ALTER TABLE agentes ADD COLUMN IF NOT EXISTS ig_token_erro TEXT`);
+  // Último aviso da Meta aceito para a conta (diagnóstico no painel).
+  await pool.query(`ALTER TABLE agentes ADD COLUMN IF NOT EXISTS ig_ultimo_evento_em TIMESTAMPTZ`);
   await pool.query(`ALTER TABLE pessoas ADD COLUMN IF NOT EXISTS ig_id TEXT`);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_pessoas_ig_id ON pessoas (ig_id) WHERE ig_id IS NOT NULL`);
   // Metas: alvo de captação por candidato (ou global) com progresso calculado ao vivo.

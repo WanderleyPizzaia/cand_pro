@@ -470,6 +470,13 @@ Eventos chegam em `POST /api/instagram/webhook` de dois jeitos:
   (`X-Candpro-Repasse`) nunca é repassado, para não criar laço. Comentários de
   conta conectada **não** vão ao n8n: o Direct automático dele voltaria como eco
   e pausaria a IA.
+- **Assinatura da conta:** na API com login do Instagram, a URL de retorno é do
+  app, mas **cada conta** precisa estar assinada (`me/subscribed_apps`), senão a
+  Meta não entrega o Direct dela. O Conectar assina sozinho, somando `messages`
+  ao que a conta já assina. O painel mostra se está assinada (com "Assinar
+  agora"), a hora do último aviso aceito (`ig_ultimo_evento_em`) e a última
+  recusa com o motivo (`INSTAGRAM_WEBHOOK_RECUSA`, por exemplo chave secreta
+  errada).
 - **Token:** vale 60 dias. O agendador (cron-job.org) renova, no máximo uma vez
   por hora, os tokens com mais de 7 dias (`refresh_access_token`), guardando
   renovação e validade. Uma falha fica em `ig_token_erro` e aparece no painel.
