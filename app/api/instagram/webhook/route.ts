@@ -108,6 +108,11 @@ export async function POST(req: NextRequest) {
   if (conectadas.size)
     await execute("UPDATE agentes SET ig_ultimo_evento_em = now() WHERE ig_user_id = ANY($1::text[])", [Array.from(conectadas)]);
   const outras = entradas.filter((e) => !conectadas.has(String(e?.id || "")));
+  // Diagnóstico geral: o último aviso da Meta aceito, de qualquer conta (o botão
+  // "Testar" do painel da Meta manda a conta 0). Separa "a Meta não chama o
+  // sistema" de "chama, mas não para esta conta".
+  if (origemPedido === "meta")
+    await setConfig("INSTAGRAM_WEBHOOK_ULTIMO", JSON.stringify({ quando: new Date().toISOString(), contas: ids.slice(0, 5) }));
 
   // Só repassa o que veio da Meta (o que veio do n8n já é dele: repassar de
   // volta faria laço) e nunca o que já é um repasse.

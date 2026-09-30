@@ -476,7 +476,11 @@ Eventos chegam em `POST /api/instagram/webhook` de dois jeitos:
   ao que a conta já assina. O painel mostra se está assinada (com "Assinar
   agora"), a hora do último aviso aceito (`ig_ultimo_evento_em`) e a última
   recusa com o motivo (`INSTAGRAM_WEBHOOK_RECUSA`, por exemplo chave secreta
-  errada).
+  errada). O último aviso aceito de **qualquer** conta fica em
+  `INSTAGRAM_WEBHOOK_ULTIMO`. Com ele, se nada chegou para a conta, o painel
+  distingue três casos: a Meta não chama o sistema, só chegou o "Testar" do
+  painel da Meta (conta `0`) ou só chegou aviso de outra conta. Um aviso aceito
+  depois da recusa esconde a recusa, porque a chave já foi corrigida.
 - **Token:** vale 60 dias. O agendador (cron-job.org) renova, no máximo uma vez
   por hora, os tokens com mais de 7 dias (`refresh_access_token`), guardando
   renovação e validade. Uma falha fica em `ig_token_erro` e aparece no painel.
