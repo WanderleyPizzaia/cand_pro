@@ -1,7 +1,9 @@
 "use client";
 
 // Painel de status das integrações do gabinete: Google, WhatsApp, Meta e
-// Instagram, com ícone da marca e indicador verde piscando (conectado/verificado).
+// Instagram, com ícone da marca. O estado vem do servidor (lib/integracoes.ts):
+// verde = funcionando, amarelo = precisa de atenção, cinza = não configurado.
+import type { EstadoIntegracao } from "@/lib/integracoes";
 
 const ICON_GOOGLE = (
   <svg viewBox="0 0 48 48" width="26" height="26" aria-hidden="true">
@@ -42,29 +44,40 @@ const ICON_INSTA = (
   </svg>
 );
 
-const SERVICOS = [
-  { nome: "Google", icon: ICON_GOOGLE, detalhe: "Agenda + Contatos" },
-  { nome: "WhatsApp", icon: ICON_WHATS, detalhe: "Atendimento + disparos" },
-  { nome: "Meta", icon: ICON_META, detalhe: "API oficial (Cloud)" },
-  { nome: "Instagram", icon: ICON_INSTA, detalhe: "Perfil oficial" },
-];
+const ICONES: Record<EstadoIntegracao["nome"], JSX.Element> = {
+  Google: ICON_GOOGLE,
+  WhatsApp: ICON_WHATS,
+  Meta: ICON_META,
+  Instagram: ICON_INSTA,
+};
 
-export default function IntegracoesStatus() {
+export default function IntegracoesStatus({ itens }: { itens: EstadoIntegracao[] }) {
+  const prontas = itens.filter((i) => i.estado === "ok").length;
+  const atencao = itens.filter((i) => i.estado === "atencao").length;
+  const cabecalho =
+    prontas === itens.length
+      ? "Todas as integrações funcionando"
+      : `${prontas} de ${itens.length} integrações funcionando${atencao ? ` · ${atencao} precisa(m) de atenção` : ""}`;
   return (
-    <div className="integr-grid">
-      {SERVICOS.map((s) => (
-        <div className="integr-card" key={s.nome}>
-          <div className="integr-ic">{s.icon}</div>
-          <div className="integr-info">
-            <div className="integr-nome">{s.nome}</div>
-            <div className="integr-detalhe">{s.detalhe}</div>
+    <>
+      <div className={`integr-head${prontas === itens.length ? "" : " parcial"}`}>
+        <span className={prontas === itens.length ? "dot-verde" : "dot-estado atencao"} /> {cabecalho}
+      </div>
+      <div className="integr-grid">
+        {itens.map((s) => (
+          <div className="integr-card" key={s.nome}>
+            <div className="integr-ic">{ICONES[s.nome]}</div>
+            <div className="integr-info">
+              <div className="integr-nome">{s.nome}</div>
+              <div className="integr-detalhe">{s.detalhe}</div>
+            </div>
+            <div className={`integr-badge ${s.estado}`}>
+              <span className={s.estado === "ok" ? "dot-verde" : `dot-estado ${s.estado}`} />
+              {s.rotulo}
+            </div>
           </div>
-          <div className="integr-badge">
-            <span className="dot-verde" />
-            Conectado
-          </div>
-        </div>
-      ))}
-    </div>
+        ))}
+      </div>
+    </>
   );
 }

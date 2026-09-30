@@ -7,6 +7,7 @@ import FormSenha from "../conta/FormSenha";
 import UsuariosCliente from "../usuarios/UsuariosCliente";
 import EditorCargos from "./EditorCargos";
 import IntegracoesStatus from "./IntegracoesStatus";
+import type { EstadoIntegracao } from "@/lib/integracoes";
 
 type Status = {
   evolutionUrl: boolean;
@@ -27,10 +28,12 @@ export default function ConfigTabs({
   meuId,
   status,
   admin = true,
+  integracoes = [],
 }: {
   meuId: number;
   status: Status | null;
   admin?: boolean;
+  integracoes?: EstadoIntegracao[];
 }) {
   const [aba, setAba] = useState<Aba>("usuarios");
 
@@ -65,12 +68,9 @@ export default function ConfigTabs({
 
       {aba === "integracoes" && status && (
         <>
-          <div className="integr-head">
-            <span className="dot-verde" /> Tudo verificado e conectado
-          </div>
-          <IntegracoesStatus />
+          <IntegracoesStatus itens={integracoes} />
           <p className="page-sub" style={{ marginTop: 18 }}>
-            Credenciais de WhatsApp + IA. Guardadas no banco (Supabase), com
+            Credenciais de WhatsApp + IA. Guardadas no banco do sistema, com
             fallback para variáveis de ambiente.
           </p>
           <div

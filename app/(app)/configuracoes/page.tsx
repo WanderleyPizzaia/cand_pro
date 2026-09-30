@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getSessao } from "@/lib/auth";
 import { statusConfig } from "@/lib/config";
+import { estadoIntegracoes } from "@/lib/integracoes";
 import ConfigTabs from "./ConfigTabs";
 import Icon from "../../components/Icon";
 
@@ -16,6 +17,8 @@ export default async function ConfiguracoesPage() {
     !!sessao.escopoCandidato;
   if (!admin && !bound) redirect("/");
   const st = admin ? await statusConfig() : null;
+  // Estado real de cada integração (o quadro antes dizia "Conectado" sempre).
+  const integracoes = admin ? await estadoIntegracoes() : [];
 
   return (
     <>
@@ -28,7 +31,7 @@ export default async function ConfiguracoesPage() {
           : "Sua equipe e sua senha de acesso."}
       </p>
 
-      <ConfigTabs meuId={sessao.uid} status={st} admin={admin} />
+      <ConfigTabs meuId={sessao.uid} status={st} admin={admin} integracoes={integracoes} />
     </>
   );
 }
