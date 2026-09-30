@@ -16,6 +16,7 @@ type Estado = {
   assinatura: { ok: boolean; mensagens: boolean; erro?: string } | null;
   recusa: { quando: string; motivo: string } | null;
   ultimo_geral?: { quando: string; contas: string[] } | null;
+  pausado?: boolean | null;
   repasse_token: string | null;
   verify_token: string | null;
   direto: { segredo_ok: boolean; repasse_ok: boolean } | null;
@@ -169,7 +170,14 @@ export default function InstagramAgente({ agenteId }: { agenteId: number }) {
                   {d.ultimo_evento
                     ? `Último aviso da Meta: ${d.ultimo_evento}.`
                     : "Nenhum aviso da Meta chegou para esta conta ainda."}
-                  {!d.ultimo_evento && <> {semAvisoDaConta(d.ultimo_geral)}</>}
+                  {!d.ultimo_evento && (
+                    <>
+                      {" "}
+                      {d.pausado
+                        ? "O recebimento direto da Meta está pausado: só entra o que o n8n repassa (Teste pelo n8n, abaixo)."
+                        : semAvisoDaConta(d.ultimo_geral)}
+                    </>
+                  )}
                 </small>
               ) : (
                 <div className="msg warn">

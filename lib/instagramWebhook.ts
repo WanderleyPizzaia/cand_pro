@@ -169,6 +169,9 @@ export async function processarEventosIG(body: any): Promise<ResumoIG> {
   return r;
 }
 
+// Recebimento direto da Meta pausado (emergência): só o repasse do n8n entra.
+export const webhookDiretoPausado = () => process.env.INSTAGRAM_WEBHOOK_PAUSADO !== "0";
+
 // Para a tela: conversas do Instagram que chegaram (monitor simples).
 export async function contarConversasIG(agenteId: number): Promise<number> {
   const x = await query<{ n: number }>(

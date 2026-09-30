@@ -4,7 +4,7 @@ import { getSessao } from "@/lib/auth";
 import { agentesDaSessao } from "@/lib/escopo";
 import { garantirSegredo, getConfig } from "@/lib/config";
 import { contaDoToken, camposAssinados, assinarMensagens } from "@/lib/instagram";
-import { contarConversasIG } from "@/lib/instagramWebhook";
+import { contarConversasIG, webhookDiretoPausado } from "@/lib/instagramWebhook";
 
 export const dynamic = "force-dynamic";
 
@@ -86,6 +86,7 @@ export async function GET(req: NextRequest) {
     assinatura,
     recusa,
     ultimo_geral,
+    pausado: admin ? webhookDiretoPausado() : null,
     // Para o n8n repassar os eventos (token na URL): só o admin configura.
     repasse_token: admin ? await garantirSegredo("INSTAGRAM_WEBHOOK_TOKEN") : null,
     // Modo direto (sem n8n): o que se cola no app da Meta, e o que falta.

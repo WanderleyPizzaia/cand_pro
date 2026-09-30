@@ -458,6 +458,14 @@ Eventos chegam em `POST /api/instagram/webhook` de dois jeitos:
   Meta e, com um IF logo depois de "Responder 200 à Meta", repassa só a conta de
   teste para `…/api/instagram/webhook?token=INSTAGRAM_WEBHOOK_TOKEN`. As outras
   contas seguem no n8n. O passo a passo e a URL aparecem para o admin no painel.
+- **Pausa do direto (emergência, 30/09):** uma conta grande assinada direto
+  derrubou o sistema. Cada aviso da Meta abria uma função com conexão própria
+  no Postgres, e as conexões se esgotaram, mesmo com os avisos sendo recusados
+  (faltava a chave secreta). Por padrão, o que chega direto da Meta recebe 200
+  **sem tocar no banco**. Só o repasse do n8n (`?token=`) entra, e o painel
+  mostra que o recebimento está pausado. Religar o direto
+  (`INSTAGRAM_WEBHOOK_PAUSADO=0` na Vercel + redeploy) só para contas de volume
+  baixo, ou depois de pôr um pool de conexões (PgBouncer) na frente do banco.
 - **Meta direto (sem n8n):** com o callback do app apontando para o sistema, a
   assinatura `X-Hub-Signature-256` é conferida com `INSTAGRAM_APP_SECRET`
   (Configurações), e a verificação `GET` usa `INSTAGRAM_VERIFY_TOKEN`. A URL e o
