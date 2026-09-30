@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { waitUntil } from "@vercel/functions";
 import { query, execute } from "@/lib/db";
 import { getConfig, setConfig, conferirToken, garantirSegredo } from "@/lib/config";
-import { processarEventosIG } from "@/lib/instagramWebhook";
+import { processarEventosIG, webhookDiretoPausado } from "@/lib/instagramWebhook";
 
 export const dynamic = "force-dynamic";
 // Agrupa ~8 s + IA + envio: roda depois da resposta (waitUntil), dentro deste teto.
@@ -69,11 +69,16 @@ async function repassarAoN8n(url: string, corpo: string, assinatura: string | nu
   }
 }
 
+const temTokenDoN8n = (req: NextRequest) =>
+  !!(req.headers.get("x-candpro-token") || new URL(req.url).searchParams.get("token"));
+
 export async function POST(req: NextRequest) {
-  // EMERGÊNCIA: o volume de Direct de uma conta grande esgotou as conexões do
-  // banco e derrubou o sistema inteiro. Pausado: responde 200 à Meta sem tocar
-  // no banco. Para religar: INSTAGRAM_WEBHOOK_PAUSADO=0 na Vercel + redeploy.
-  if (process.env.INSTAGRAM_WEBHOOK_PAUSADO !== "0") return new NextResponse("EVENT_RECEIVED", { status: 200 });
+  // EMERGÊNCIA: o volume de uma conta grande vindo direto da Meta esgotou as
+  // conexões do banco e derrubou o sistema inteiro. Pausado: o que chega direto
+  // da Meta (sem token do n8n) recebe 200 sem tocar no banco. O repasse do n8n
+  // (?token=, só a conta de teste) segue. Religar o direto:
+  // INSTAGRAM_WEBHOOK_PAUSADO=0 na Vercel + redeploy.
+  if (webhookDiretoPausado() && !temTokenDoN8n(req)) return new NextResponse("EVENT_RECEIVED", { status: 200 });
   const raw = await req.text();
   const pedido = await origemDoPedido(req, raw);
   const origemPedido = pedido.origem;
