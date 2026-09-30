@@ -47,20 +47,31 @@ export async function GET(req: NextRequest) {
   const admin = s.perfil === "ADMIN";
   const conectado = a.tem_token && !!a.ig_user_id;
   // Diagnóstico (admin): a conta está assinada no webhook? e a última recusa,
-  // se veio depois do último aviso aceito desta conta.
+  // se veio depois do último aviso aceito (desta conta ou de qualquer outra:
+  // aviso aceito depois dela quer dizer que a chave já foi corrigida).
   let assinatura: { ok: boolean; mensagens: boolean; erro?: string } | null = null;
   let recusa: { quando: string; motivo: string } | null = null;
+  let ultimo_geral: { quando: string; contas: string[] } | null = null;
+  const dataHora = (iso: string) =>
+    new Date(iso).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+  const lerJson = async (chave: string) => {
+    try {
+      return JSON.parse((await getConfig(chave)) || "null");
+    } catch {
+      return null;
+    }
+  };
   if (admin && conectado && a.ig_token) {
     const c = await camposAssinados(a.ig_token);
     assinatura = { ok: c.ok, mensagens: c.campos.includes("messages"), erro: c.erro };
-    try {
-      const r = JSON.parse((await getConfig("INSTAGRAM_WEBHOOK_RECUSA")) || "null");
-      if (r?.quando && (!a.ultimo_evento_em || new Date(r.quando) > new Date(a.ultimo_evento_em)))
-        recusa = {
-          quando: new Date(r.quando).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }),
-          motivo: String(r.motivo || ""),
-        };
-    } catch {}
+    const geral = await lerJson("INSTAGRAM_WEBHOOK_ULTIMO");
+    const aceitos = [a.ultimo_evento_em, geral?.quando].filter(Boolean).map((d) => new Date(d).getTime());
+    const r = await lerJson("INSTAGRAM_WEBHOOK_RECUSA");
+    if (r?.quando && new Date(r.quando).getTime() > Math.max(0, ...aceitos))
+      recusa = { quando: dataHora(r.quando), motivo: String(r.motivo || "") };
+    // Nada chegou para esta conta: chegou algo da Meta para outra?
+    if (!a.ultimo_evento_em && geral?.quando)
+      ultimo_geral = { quando: dataHora(geral.quando), contas: (geral.contas || []).map(String) };
   }
   return NextResponse.json({
     conectado,
@@ -74,6 +85,7 @@ export async function GET(req: NextRequest) {
     ultimo_evento: a.ultimo_evento,
     assinatura,
     recusa,
+    ultimo_geral,
     // Para o n8n repassar os eventos (token na URL): só o admin configura.
     repasse_token: admin ? await garantirSegredo("INSTAGRAM_WEBHOOK_TOKEN") : null,
     // Modo direto (sem n8n): o que se cola no app da Meta, e o que falta.

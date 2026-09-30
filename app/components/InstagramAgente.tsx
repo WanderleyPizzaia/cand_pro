@@ -15,6 +15,7 @@ type Estado = {
   ultimo_evento: string | null;
   assinatura: { ok: boolean; mensagens: boolean; erro?: string } | null;
   recusa: { quando: string; motivo: string } | null;
+  ultimo_geral?: { quando: string; contas: string[] } | null;
   repasse_token: string | null;
   verify_token: string | null;
   direto: { segredo_ok: boolean; repasse_ok: boolean } | null;
@@ -44,6 +45,15 @@ function Copiar({ valor }: { valor: string }) {
 
 // Conta do Instagram do candidato: conecta pelo token, liga/desliga a IA no
 // Direct e (admin) mostra como o n8n repassa os eventos da conta de teste.
+// Nada chegou para esta conta: o que o último aviso da Meta (de qualquer conta) diz.
+function semAvisoDaConta(u?: { quando: string; contas: string[] } | null) {
+  if (!u)
+    return "Nenhum aviso da Meta chegou ao sistema, de nenhuma conta: no app da Meta, confira a URL de retorno e se o campo messages está assinado.";
+  if (u.contas.length === 1 && u.contas[0] === "0")
+    return `O aviso de teste do painel da Meta chegou em ${u.quando}: URL e chave secreta estão certas; falta a Meta mandar o Direct desta conta.`;
+  return `Chegou aviso da Meta da conta ${u.contas.join(", ")} em ${u.quando}, mas nenhum desta: URL e chave secreta estão certas.`;
+}
+
 export default function InstagramAgente({ agenteId }: { agenteId: number }) {
   const [d, setD] = useState<Estado | null>(null);
   const [token, setToken] = useState("");
@@ -159,6 +169,7 @@ export default function InstagramAgente({ agenteId }: { agenteId: number }) {
                   {d.ultimo_evento
                     ? `Último aviso da Meta: ${d.ultimo_evento}.`
                     : "Nenhum aviso da Meta chegou para esta conta ainda."}
+                  {!d.ultimo_evento && <> {semAvisoDaConta(d.ultimo_geral)}</>}
                 </small>
               ) : (
                 <div className="msg warn">
