@@ -70,7 +70,7 @@ export const AREAS: Area[] = [
         label: "Contatos",
         icon: "users",
         desc: "Eleitores, lideranças e apoiadores",
-        abas: [{ href: "/pessoas", label: "Contatos", icon: "users", perfis: [ADMIN, MKT, COORD, CAND, LIDER] }],
+        abas: [{ href: "/pessoas", label: "Contatos", icon: "users", perfis: [ADMIN, MKT, COORD, CAND, LIDER, ATEND] }],
         extras: ["/cadastro"],
       },
       {

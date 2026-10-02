@@ -1,4 +1,5 @@
 import { query, queryOne, execute } from "./db";
+import { normalizarNumero } from "./evolution";
 
 // ============================================================
 // CRM de Atendimento em equipe (inbox multi-atendente).
@@ -261,4 +262,82 @@ export async function baterPresenca(
   } else {
     await execute(`UPDATE usuarios SET visto_em = now() WHERE id = $1`, [userId]);
   }
+}
+
+// ============================================================
+// Iniciar atendimento a partir de Contatos.
+// ============================================================
+
+// Formas do mesmo celular brasileiro: com e sem 55, com e sem o 9 depois do
+// DDD (o WhatsApp e a Meta ainda entregam alguns números antigos sem o 9).
+export function variantesNumero(raw: string): string[] {
+  const d = normalizarNumero(raw);
+  if (!d) return [];
+  const out = new Set([d]);
+  if (d.startsWith("55") && (d.length === 12 || d.length === 13)) {
+    const local = d.slice(2); // DDD + número
+    out.add(local);
+    if (local.length === 11 && local[2] === "9") {
+      const sem9 = local.slice(0, 2) + local.slice(3);
+      out.add("55" + sem9);
+      out.add(sem9);
+    } else if (local.length === 10 && /[6-9]/.test(local[2])) {
+      const com9 = local.slice(0, 2) + "9" + local.slice(2);
+      out.add("55" + com9);
+      out.add(com9);
+    }
+  }
+  return Array.from(out);
+}
+
+// Chave da conversa para um contato: a forma do número que já tem conversa ou
+// mensagem neste número (para cair no mesmo histórico); senão, a normalizada.
+export async function contatoDaConversa(agenteId: number, whatsapp: string): Promise<string | null> {
+  const vars = variantesNumero(whatsapp);
+  if (!vars.length) return null;
+  const achado = await queryOne<{ contato: string }>(
+    `SELECT contato FROM (
+        SELECT contato, atualizado_em AS t FROM atendimentos WHERE agente_id = $1 AND contato = ANY($2::text[])
+        UNION ALL
+        SELECT contato, criado_em AS t FROM mensagens WHERE agente_id = $1 AND contato = ANY($2::text[])
+      ) x ORDER BY t DESC NULLS LAST LIMIT 1`,
+    [agenteId, vars]
+  );
+  return achado?.contato ?? vars[0];
+}
+
+// Atendente só age em conversa que já existe ou em contato CADASTRADO deste
+// número (nunca num telefone qualquer digitado na requisição).
+export async function atendentePodeUsar(agenteId: number, contato: string): Promise<boolean> {
+  const existe = await queryOne(
+    `SELECT 1 FROM atendimentos WHERE agente_id = $1 AND contato = $2
+     UNION ALL
+     SELECT 1 FROM mensagens WHERE agente_id = $1 AND contato = $2
+     LIMIT 1`,
+    [agenteId, contato]
+  );
+  if (existe) return true;
+  if (contato.startsWith("ig:")) return false;
+  const vars = variantesNumero(contato);
+  if (!vars.length) return false;
+  const cadastrado = await queryOne(
+    `SELECT 1 FROM pessoas
+      WHERE agente_id = $1 AND regexp_replace(COALESCE(whatsapp,''),'\\D','','g') = ANY($2::text[])
+      LIMIT 1`,
+    [agenteId, vars]
+  );
+  return !!cadastrado;
+}
+
+// Número oficial (Meta): mensagem livre só vale até 24 h depois da última
+// mensagem da pessoa. Fora disso a Meta aceita o envio e depois o descarta
+// (erro 131047), então a tela avisaria "enviado" sem a pessoa receber.
+export async function janelaMetaAberta(agenteId: number, contato: string): Promise<boolean> {
+  const vars = contato.startsWith("ig:") ? [contato] : variantesNumero(contato);
+  const r = await queryOne<{ ok: boolean }>(
+    `SELECT COALESCE(max(criado_em) > now() - interval '24 hours', false) AS ok
+       FROM mensagens WHERE agente_id = $1 AND contato = ANY($2::text[]) AND direcao = 'in'`,
+    [agenteId, vars.length ? vars : [contato]]
+  );
+  return !!r?.ok;
 }

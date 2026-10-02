@@ -80,10 +80,22 @@ function Avatar({ foto, nome }: { foto: string | null; nome: string }) {
 
 const VIEWS_VALIDAS: View[] = ["minhas", "fila", "todas", "resolvidas", "equipe"];
 
+// Vindo de Contatos ("Atender"): a conversa a abrir (ou começar), já conferida
+// no servidor, ou o motivo de não poder abrir.
+export type Iniciar =
+  | { agente_id: number; contato: string; contato_nome: string | null; agente_nome: string | null }
+  | { erro: string };
+
 // Conversa do Direct: contato 'ig:<id>' (não é telefone).
 const ehIG = (contato: string | null | undefined) => (contato || "").startsWith("ig:");
 
-export default function AtendimentoCliente({ viewInicial }: { viewInicial?: string }) {
+export default function AtendimentoCliente({
+  viewInicial,
+  iniciar,
+}: {
+  viewInicial?: string;
+  iniciar?: Iniciar | null;
+}) {
   // Links do Início ("Abrir fila") chegam com ?view=fila.
   const [view, setView] = useState<View>(
     VIEWS_VALIDAS.includes(viewInicial as View) ? (viewInicial as View) : "todas"
@@ -357,6 +369,41 @@ export default function AtendimentoCliente({ viewInicial }: { viewInicial?: stri
     carregarThread(c, true);
   }
 
+  // Contatos → Atender: abre a conversa do contato. Se ainda não existe, abre
+  // em branco ("nova conversa"); ela nasce com a primeira mensagem enviada.
+  const iniciouRef = useRef(false);
+  useEffect(() => {
+    if (!iniciar || iniciouRef.current) return;
+    iniciouRef.current = true;
+    try {
+      const u = new URL(window.location.href);
+      u.searchParams.delete("pessoa"); // recarregar a página não reabre
+      window.history.replaceState(null, "", u.pathname + u.search);
+    } catch {}
+    if ("erro" in iniciar) {
+      setErro(iniciar.erro);
+      return;
+    }
+    setView("minhas"); // depois da 1ª mensagem a conversa fica com você
+    abrir({
+      id: 0,
+      agente_id: iniciar.agente_id,
+      contato: iniciar.contato,
+      status: "",
+      atendente_id: null,
+      atendente_nome: null,
+      contato_nome: iniciar.contato_nome,
+      foto: null,
+      ultimo: null,
+      direcao: "",
+      origem: null,
+      agente_nome: iniciar.agente_nome,
+      quando: "",
+      nao_lida: false,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [iniciar]);
+
   async function acao(acao: string, extra: Record<string, unknown> = {}) {
     if (!sel) return;
     const r = await fetch("/api/atendimento", {
@@ -536,6 +583,7 @@ export default function AtendimentoCliente({ viewInicial }: { viewInicial?: stri
   return (
     <>
 
+      {!sel && erro && <div className="msg err" role="alert">{erro}</div>}
       <div className="at-wrap">
         {/* Visões (Minhas, Fila, Todas…) em chips no topo */}
         <div className="at-topo">
@@ -745,7 +793,7 @@ export default function AtendimentoCliente({ viewInicial }: { viewInicial?: stri
             ) : (
               <>
                 <div className="inbox-head at-head">
-                  <button type="button" className="inbox-voltar" onClick={() => setSel(null)} aria-label="Voltar para a lista">
+                  <button type="button" className="inbox-voltar" onClick={() => { setSel(null); setErro(""); }} aria-label="Voltar para a lista">
                     <Icon name="chevron-left" size={22} />
                   </button>
                   <Avatar foto={sel.foto} nome={sel.contato_nome || sel.contato} />
@@ -756,10 +804,12 @@ export default function AtendimentoCliente({ viewInicial }: { viewInicial?: stri
                       {sel.status === "fila" && " · na fila"}
                       {sel.status === "atribuido" && sel.atendente_nome && ` · ${souDono ? "você" : sel.atendente_nome}`}
                       {sel.status === "resolvido" && " · resolvida"}
+                      {!sel.status && " · nova conversa"}
                     </span>
                   </div>
 
-                  {/* Ações de atribuição */}
+                  {/* Ações de atribuição (conversa nova ainda não existe: nasce ao enviar) */}
+                  {sel.status && (
                   <div className="at-acoes">
                     {sel.status === "resolvido" ? (
                       <button type="button" className="at-btn" onClick={() => acao("reabrir")}>Reabrir</button>
@@ -777,6 +827,7 @@ export default function AtendimentoCliente({ viewInicial }: { viewInicial?: stri
                       </>
                     )}
                   </div>
+                  )}
 
                   {transferindo && podeAgir && (
                     <div className="at-transferir">
@@ -851,7 +902,11 @@ export default function AtendimentoCliente({ viewInicial }: { viewInicial?: stri
                       <div className="bolha-hora">{(m.quando || "").slice(11)}{m.origem === "ia" && m.direcao === "out" ? " · IA" : ""}</div>
                     </div>
                   ))}
-                  {msgs.length === 0 && <div className="wa-vazio">Sem mensagens ainda.</div>}
+                  {msgs.length === 0 && (
+                    <div className="wa-vazio">
+                      {sel.status ? "Sem mensagens ainda." : "Conversa nova: escreva a primeira mensagem abaixo."}
+                    </div>
+                  )}
                   <div ref={fimRef} />
                 </div>
 

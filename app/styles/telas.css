@@ -845,6 +845,9 @@
     flex-wrap: nowrap;
     overflow-x: auto;
     scrollbar-width: none;
+    /* prende os rótulos .sr-only (absolutos) à faixa que rola; sem isso eles
+       alargavam a página e ela balançava para o lado no celular */
+    position: relative;
   }
   .filtro-sel select {
     max-width: 180px;
@@ -856,7 +859,10 @@
     border-radius: 0;
   }
   .ct-tabela,
-  .ct-tabela tbody {
+  .ct-tabela tbody,
+  .ct-tabela-wrap .ct-tabela {
+    /* vence o .table-wrap table { min-width: 640px } genérico: senão a lista
+       passa da tela e a coluna de ações (Atender) some à direita */
     display: block;
     min-width: 0;
   }

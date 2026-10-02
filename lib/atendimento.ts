@@ -1,4 +1,5 @@
 import { queryOne, execute } from "./db";
+import { DIGITOS_WHATSAPP, variantesSql } from "./numeroSql";
 
 // ============================================================
 // Controle de atendimento humano x IA por contato.
@@ -32,8 +33,9 @@ export const SQL_IA_RESPONDENDO = `((CASE WHEN at.contato LIKE 'ig:%' THEN COALE
 // Etiquetas do contato da conversa: o contato DAQUELE candidato (agente_id).
 // Junta como `et` (pede o alias `at` de atendimentos).
 // Contato do Instagram casa pelo ig_id; o do WhatsApp, pelos dígitos do número.
+// Telefone: casa com/sem 55 e com/sem o 9 (ver lib/numeroSql.ts).
 export const SQL_CASA_CONTATO = `((at.contato LIKE 'ig:%' AND ig_id = substr(at.contato, 4))
-        OR (at.contato NOT LIKE 'ig:%' AND regexp_replace(COALESCE(whatsapp,''),'\\D','','g') = at.contato))`;
+        OR (at.contato NOT LIKE 'ig:%' AND ${DIGITOS_WHATSAPP} = ANY(${variantesSql("at.contato")})))`;
 export const SQL_JOIN_ETIQUETAS = `LEFT JOIN LATERAL (
     SELECT etiquetas FROM pessoas
      WHERE ${SQL_CASA_CONTATO}

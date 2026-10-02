@@ -4,6 +4,7 @@ import { regiaoMaisProxima } from "./opcoes";
 import { geoDoNumero } from "./ddd";
 import { extrairNomeCidade } from "./ia";
 import { ehInstagram, igsidDe } from "./instagram";
+import { DIGITOS_WHATSAPP, variantesSql } from "./numeroSql";
 
 // Chave do contato: telefone (só dígitos) ou, no Direct, o id do Instagram.
 // Contato do Instagram nunca ganha "whatsapp" (senão o disparo tentaria
@@ -12,8 +13,10 @@ function chaveDe(numero: string): { ig: string | null; digits: string } {
   if (ehInstagram(numero)) return { ig: igsidDe(numero), digits: "" };
   return { ig: null, digits: (numero || "").replace(/\D/g, "") };
 }
+// Telefone: acha o contato com/sem 55 e com/sem o 9 (ver lib/numeroSql.ts),
+// senão a planilha sem 55 virava contato duplicado.
 const ONDE_CONTATO = (ig: string | null) =>
-  ig ? "ig_id = $1" : "regexp_replace(COALESCE(whatsapp,''),'\\D','','g') = $1";
+  ig ? "ig_id = $1" : `${DIGITOS_WHATSAPP} = ANY(${variantesSql("$1::text")})`;
 
 // ============================================================
 // Cadastro automático do eleitor a partir da conversa do agente de IA.

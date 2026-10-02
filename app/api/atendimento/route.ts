@@ -24,7 +24,12 @@ import {
   baterPresenca,
   liberarInativos,
   PRESENCA_MS,
+  atendentePodeUsar,
+  janelaMetaAberta,
 } from "@/lib/atendimentoCrm";
+
+const AVISO_META_24H =
+  "Número oficial da Meta: mensagem livre só vale até 24 h depois da última mensagem da pessoa. Para começar a conversa, envie um modelo aprovado em Disparos.";
 
 // Devolve à fila conversas sem resposta humana há X minutos (padrão 10).
 // Roda no máximo 1x por minuto (guarda em memória) para não pesar no poll.
@@ -309,6 +314,15 @@ export async function POST(req: NextRequest) {
 
   const gestor = GESTOR.includes(s.perfil);
 
+  // Atendente só age em conversa que já existe ou em contato cadastrado deste
+  // número (Contatos → Atender). Nunca num telefone qualquer da requisição:
+  // isso faria do WhatsApp da campanha um disparador para qualquer número.
+  if (!gestor && !(await atendentePodeUsar(agenteId, contato)))
+    return NextResponse.json(
+      { erro: "Só dá para iniciar atendimento com contatos cadastrados deste número." },
+      { status: 403 }
+    );
+
   if (acao === "assumir") {
     // Gestor pode assumir/forçar; atendente só assume se estiver LIVRE (ou já dele).
     if (gestor) {
@@ -375,6 +389,8 @@ export async function POST(req: NextRequest) {
 
     const agente = await queryOne<Agente>("SELECT * FROM agentes WHERE id = $1", [agenteId]);
     if (!agente) return NextResponse.json({ erro: "Agente não encontrado." }, { status: 404 });
+    if (agente.provedor === "meta" && !contato.startsWith("ig:") && !(await janelaMetaAberta(agente.id, contato)))
+      return NextResponse.json({ erro: AVISO_META_24H }, { status: 409 });
 
     // TRAVA: só responde quem é o dono (ou pega a conversa livre). Se já está
     // com OUTRO atendente, bloqueia — evita dois respondendo a mesma pessoa.
@@ -423,6 +439,8 @@ export async function POST(req: NextRequest) {
 
     const agente = await queryOne<Agente>("SELECT * FROM agentes WHERE id = $1", [agenteId]);
     if (!agente) return NextResponse.json({ erro: "Agente não encontrado." }, { status: 404 });
+    if (agente.provedor === "meta" && !contato.startsWith("ig:") && !(await janelaMetaAberta(agente.id, contato)))
+      return NextResponse.json({ erro: AVISO_META_24H }, { status: 409 });
 
     // Mesma trava do responder: só o dono (ou conversa livre) manda áudio.
     if (gestor) {
@@ -469,6 +487,8 @@ export async function POST(req: NextRequest) {
 
     const agente = await queryOne<Agente>("SELECT * FROM agentes WHERE id = $1", [agenteId]);
     if (!agente) return NextResponse.json({ erro: "Agente não encontrado." }, { status: 404 });
+    if (agente.provedor === "meta" && !contato.startsWith("ig:") && !(await janelaMetaAberta(agente.id, contato)))
+      return NextResponse.json({ erro: AVISO_META_24H }, { status: 409 });
 
     if (gestor) {
       await assumir(agenteId, contato, s.uid);

@@ -83,9 +83,12 @@ function Avatar({ c, grande }: { c: LinhaContato; grande?: boolean }) {
   );
 }
 
-function conversaHref(c: LinhaContato) {
+function conversaHref(c: LinhaContato, atender = false) {
   const n = (c.whatsapp || "").replace(/\D/g, "");
   if (!n) return null;
+  // Atendente abre (ou começa) a conversa na tela de Atendimento, pelo número
+  // do contato; o servidor confere se o contato é de um número dele.
+  if (atender) return c.agenteId ? `/atendimento?pessoa=${c.id}` : null;
   return `/inbox?contato=${n}${c.agenteId ? `&agente=${c.agenteId}` : ""}`;
 }
 
@@ -128,11 +131,14 @@ export default function TabelaContatos({
   mostrarCandidato,
   podeListas,
   abrirId,
+  atender = false,
 }: {
   linhas: LinhaContato[];
   mostrarCandidato: boolean;
   podeListas: boolean;
   abrirId: number | null;
+  // Atendente: só consulta e inicia atendimento (sem seleção, editar, excluir).
+  atender?: boolean;
 }) {
   const router = useRouter();
   const [sel, setSel] = useState<Set<number>>(new Set());
@@ -236,6 +242,7 @@ export default function TabelaContatos({
         <table className="ct-tabela">
           <thead>
             <tr>
+              {!atender && (
               <th className="ct-col-sel">
                 <input
                   type="checkbox"
@@ -247,6 +254,7 @@ export default function TabelaContatos({
                   onChange={() => setSel(todos ? new Set() : new Set(linhas.map((l) => l.id)))}
                 />
               </th>
+              )}
               <th>Nome</th>
               <th className="ct-col-cat">Categoria</th>
               <th className="ct-col-cid">Cidade</th>
@@ -260,7 +268,7 @@ export default function TabelaContatos({
           </thead>
           <tbody>
             {linhas.map((c) => {
-              const conversa = conversaHref(c);
+              const conversa = conversaHref(c, atender);
               return (
                 <tr
                   key={c.id}
@@ -271,6 +279,7 @@ export default function TabelaContatos({
                     setAbertoId(c.id);
                   }}
                 >
+                  {!atender && (
                   <td className="ct-col-sel">
                     <input
                       type="checkbox"
@@ -279,6 +288,7 @@ export default function TabelaContatos({
                       onChange={() => alternar(c.id)}
                     />
                   </td>
+                  )}
                   <td className="ct-col-nome">
                     <button type="button" className="ct-quem" onClick={() => setAbertoId(c.id)}>
                       <Avatar c={c} />
@@ -310,11 +320,17 @@ export default function TabelaContatos({
                   </td>
                   <td className="ct-col-acoes">
                     <div className="ct-acoes">
-                      {conversa && (
+                      {conversa && atender && (
+                        <Link href={conversa} className="btn btn-sm btn-ghost" title="Iniciar atendimento no WhatsApp">
+                          <Icon name="whatsapp" size={16} /> Atender
+                        </Link>
+                      )}
+                      {conversa && !atender && (
                         <Link href={conversa} className="btn btn-sm btn-ghost btn-icon" title="Abrir conversa no WhatsApp" aria-label="Abrir conversa no WhatsApp">
                           <Icon name="whatsapp" size={16} />
                         </Link>
                       )}
+                      {!atender && (
                       <div className="menu-wrap">
                         <button
                           type="button"
@@ -341,6 +357,7 @@ export default function TabelaContatos({
                           </div>
                         )}
                       </div>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -356,6 +373,7 @@ export default function TabelaContatos({
           mostrarCandidato={mostrarCandidato}
           onFechar={() => setAbertoId(null)}
           onExcluir={() => setExcluir(aberto)}
+          atender={atender}
         />
       )}
 
@@ -398,13 +416,15 @@ function PainelContato({
   mostrarCandidato,
   onFechar,
   onExcluir,
+  atender = false,
 }: {
   c: LinhaContato;
   mostrarCandidato: boolean;
   onFechar: () => void;
   onExcluir: () => void;
+  atender?: boolean;
 }) {
-  const conversa = conversaHref(c);
+  const conversa = conversaHref(c, atender);
   const [menu, setMenu] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const router = useRouter();
@@ -474,9 +494,12 @@ function PainelContato({
         <div className="ct-painel-acoes">
           {conversa && (
             <Link href={conversa} className="btn btn-primary">
-              <Icon name="whatsapp" size={16} /> Abrir conversa
+              <Icon name="whatsapp" size={16} /> {atender ? "Iniciar atendimento" : "Abrir conversa"}
             </Link>
           )}
+          {atender && !conversa && <p className="hint">Sem WhatsApp cadastrado: não dá para iniciar atendimento.</p>}
+          {!atender && (
+          <>
           <Link href={`/cadastro?id=${c.id}`} className="btn btn-ghost">
             <Icon name="edit" size={16} /> Editar
           </Link>
@@ -498,13 +521,17 @@ function PainelContato({
               </div>
             )}
           </div>
+          </>
+          )}
         </div>
 
+        {(!atender || etq.length > 0) && (
         <div className="ct-etiquetas">
           <span className="rotulo">Etiquetas</span>
           <div className="ct-etiquetas-opcoes" role="group" aria-label="Etiquetas do contato">
             {ETIQUETAS.map((e) => {
               const on = etq.includes(e.v);
+              if (atender) return on ? <span key={e.v} className={`selo ${e.tom}`}>{e.rotulo}</span> : null;
               return (
                 <button
                   key={e.v}
@@ -521,6 +548,7 @@ function PainelContato({
           </div>
           {erroEtq && <p className="hint erro">{erroEtq}</p>}
         </div>
+        )}
 
         <dl className="ct-dados">
           {linha("WhatsApp", c.whatsapp ? <span className="mono">{formatFone(c.whatsapp)}</span> : null)}
