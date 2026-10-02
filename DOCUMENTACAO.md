@@ -218,6 +218,7 @@ O sistema não cria dados de exemplo nem tem senha padrão:
 | **COORDENACAO** | Dashboard, Cadastros, Mapas, WhatsApp, Tarefas |
 | **CANDIDATO** | Dashboard, Mapas, Agenda |
 | **LIDER** | Dashboard, Cadastros, Mapas, Agenda — **só os próprios dados** |
+| **ATENDENTE** | Atendimento e Contatos (só leitura) dos números vinculados a ele — inicia atendimento, não importa, exporta, cadastra, edita nem exclui |
 
 > **Isolamento do Líder:** todo cadastro guarda `criado_por = id do líder`. Nas
 > telas (Dashboard, Pessoas, Mapas) o LIDER vê apenas o que ele cadastrou.
@@ -279,13 +280,33 @@ Formulário que coleta nome, categoria, cidade, bairro, whatsapp, e-mail, etc.
 A cidade é casada com a base IBGE de SP → coordenadas automáticas e região
 inferida. Envia para `POST /api/pessoas` (vincula `criado_por` à sessão).
 
-### 7.4 Contatos (`/pessoas`) — ADMIN, Marketing, Coordenação, Candidato e Líder
+### 7.4 Contatos (`/pessoas`) — ADMIN, Marketing, Coordenação, Candidato, Líder e Atendente (só leitura)
 Tabela (lista compacta no celular) com busca e filtros de categoria, cidade e
 candidato na URL. Clique na linha abre o painel de detalhes (abrir conversa,
 editar, excluir com confirmação). Seleção em massa: **adicionar à lista**
 (`POST /api/listas/membros`) e **exportar CSV** dos selecionados. O menu
 "Planilha" exporta com os filtros atuais, importa CSV e busca fotos do
 WhatsApp. O LIDER vê apenas os próprios cadastros.
+
+**Atendente** vê só os contatos dos números vinculados a ele, sem planilha,
+cadastro, seleção em massa, editar, excluir nem marcar etiqueta (marca pela
+conversa). O botão **Atender** (linha e painel) abre `/atendimento?pessoa=ID`:
+o servidor confere que o contato é de um número dele e acha a conversa
+existente (o número pode estar com ou sem 55 e com ou sem o 9,
+`contatoDaConversa`) ou abre uma **conversa nova**, que nasce na primeira
+mensagem, já atribuída a quem iniciou. A API do Atendimento só deixa o
+atendente agir em conversa existente ou em contato **cadastrado** daquele
+número (`atendentePodeUsar`): mandar para um telefone qualquer, assumir ou
+etiquetar número solto dá 403. Número oficial (Meta) fora da janela de 24 h
+recusa mensagem livre com aviso para usar um modelo em Disparos
+(`janelaMetaAberta`); antes a Meta aceitava e descartava em silêncio.
+
+**Número do contato x conversa** (`lib/numeroSql.ts`): a conversa vem com 55 (e
+às vezes sem o 9) e a planilha costuma vir sem o 55. O Atendimento
+(`SQL_CASA_CONTATO`: nome, foto, etiquetas) e o cadastro automático
+(`garantirContato`, `capturarEleitor`) comparam as variantes com/sem 55 e
+com/sem 9, pelo índice de dígitos do whatsapp. Antes comparavam os dígitos
+exatos: a conversa aparecia sem nome e a etiqueta criava contato duplicado.
 
 **Importação de CSV** (`lib/csv.ts` + `POST /api/pessoas/import`): o navegador
 lê o arquivo (UTF-8, UTF-16 ou Windows-1252, o "CSV" do Excel em português,

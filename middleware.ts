@@ -28,9 +28,12 @@ const PUBLICAS = [
   "/api/agente/responder",
 ];
 
-// Atendente só trabalha no Atendimento. Tudo fora desta lista volta para a
-// fila (telas) ou é negado (APIs), inclusive telas e rotas criadas no futuro.
-const ATENDENTE_TELAS = ["/atendimento", "/conta"];
+// Atendente trabalha no Atendimento e consulta Contatos (só leitura, para
+// iniciar atendimento). Tudo fora desta lista volta para a fila (telas) ou é
+// negado (APIs), inclusive telas e rotas criadas no futuro. Contatos não ganha
+// API aqui: a lista vem pronta do servidor, e importar, exportar, editar e
+// excluir continuam negados.
+const ATENDENTE_TELAS = ["/atendimento", "/conta", "/pessoas"];
 const ATENDENTE_APIS = [
   "/api/atendimento",
   "/api/respostas",

@@ -42,6 +42,9 @@ export default async function PessoasPage({
 }) {
   const sessao = getSessao()!;
   const ehLider = sessao.perfil === "LIDER";
+  // Atendente: só consulta os contatos dos números que atende e inicia
+  // atendimento. Sem importar, exportar, cadastrar, editar ou excluir.
+  const atender = sessao.perfil === "ATENDENTE";
   const candFiltro = searchParams.candidato || "";
   const catFiltro = (searchParams.categoria || "").trim();
   const cidFiltro = (searchParams.cidade || "").trim();
@@ -190,15 +193,19 @@ export default async function PessoasPage({
           <p className="page-sub">
             {ehLider
               ? "Pessoas que você cadastrou."
+              : atender
+              ? "Contatos dos números que você atende. Toque em Atender para abrir a conversa no WhatsApp."
               : "Eleitores, lideranças e apoiadores. Clique em uma linha para ver os detalhes."}
           </p>
         </div>
+        {!atender && (
         <div className="page-head-acoes">
           <ImportExport />
           <Link href="/cadastro" className="btn btn-primary">
             <Icon name="plus" size={16} /> Cadastrar
           </Link>
         </div>
+        )}
       </div>
 
       <div className="ct-toolbar">
@@ -226,6 +233,8 @@ export default async function PessoasPage({
                 <b>Nenhum contato com esses filtros.</b>
                 <Link href="/pessoas">Limpar filtros</Link>
               </>
+            ) : atender ? (
+              <b>Nenhum contato nos números que você atende.</b>
             ) : (
               <>
                 <b>Nenhum contato ainda.</b>
@@ -240,6 +249,7 @@ export default async function PessoasPage({
           mostrarCandidato={!ehLider}
           podeListas={PODE_LISTAS.includes(sessao.perfil)}
           abrirId={Number(searchParams.abrir) || null}
+          atender={atender}
         />
       )}
 
