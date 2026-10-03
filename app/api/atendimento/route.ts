@@ -12,7 +12,7 @@ import {
   SQL_CASA_CONTATO,
   gravarEtiqueta,
 } from "@/lib/atendimento";
-import { ehEtiqueta, opostaDe, etiquetasValidas, FILTRO_IA } from "@/lib/etiquetas";
+import { ehEtiqueta, opostaDe, etiquetasValidas, FILTRO_IA, FILTRO_SEM, sqlSemEtiqueta } from "@/lib/etiquetas";
 import { garantirContato } from "@/lib/eleitores";
 import { agentesDaSessao } from "@/lib/escopo";
 import {
@@ -174,6 +174,8 @@ export async function GET(req: NextRequest) {
   } else if (ehEtiqueta(etiquetaQ)) {
     params.push(etiquetaQ);
     filtroEtiqueta = `AND COALESCE(et.etiquetas, '{}') @> ARRAY[$${params.length}]::text[]`;
+  } else if (etiquetaQ === FILTRO_SEM) {
+    filtroEtiqueta = `AND ${sqlSemEtiqueta("et.etiquetas")}`;
   }
 
   let filtroBusca = "";

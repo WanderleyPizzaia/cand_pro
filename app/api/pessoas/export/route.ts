@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { query, Pessoa } from "@/lib/db";
 import { getSessao } from "@/lib/auth";
 import { agentesDaSessao } from "@/lib/escopo";
-import { ETIQUETAS, ehEtiqueta } from "@/lib/etiquetas";
+import { ETIQUETAS, ehEtiqueta, FILTRO_SEM, sqlSemEtiqueta } from "@/lib/etiquetas";
+import { cteAtendimentoAtivo } from "@/lib/atendimentoCrm";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60; // export de dezenas de milhares de linhas
@@ -50,6 +51,9 @@ export async function GET(req: NextRequest) {
   const categoria = (url.searchParams.get("categoria") ?? "").trim();
   const cidade = (url.searchParams.get("cidade") ?? "").trim();
   const etiqueta = (url.searchParams.get("etiqueta") ?? "").trim();
+  // Com/sem atendente (mesmo filtro da tela; o Líder não tem).
+  const atdQ = (url.searchParams.get("atendimento") ?? "").trim();
+  const atendimento = sessao.perfil !== "LIDER" && ["livre", "com", "meus"].includes(atdQ) ? atdQ : "";
 
   // Só as colunas do CSV — NÃO puxa `foto` (base64) nem lat/lng, senão o export
   // carrega megabytes de imagem por linha e estoura o tempo da função.
@@ -85,10 +89,17 @@ export async function GET(req: NextRequest) {
     params.push(cidade);
     cond.push(`p.cidade = $${params.length}`);
   }
-  if (ehEtiqueta(etiqueta)) {
+  if (etiqueta === FILTRO_SEM) {
+    cond.push(sqlSemEtiqueta("p.etiquetas"));
+  } else if (ehEtiqueta(etiqueta)) {
     params.push(etiqueta);
     cond.push(`p.etiquetas @> ARRAY[$${params.length}]::text[]`);
   }
+  if (atendimento === "livre") cond.push("ap.pessoa_id IS NULL");
+  if (atendimento === "com") cond.push("ap.pessoa_id IS NOT NULL");
+  if (atendimento === "meus") cond.push(`ap.atendente_id = ${Number(sessao.uid)}`);
+  const withAtend = atendimento ? `WITH ${cteAtendimentoAtivo(bound ? meus! : null)} ` : "";
+  const joinAtend = atendimento ? "LEFT JOIN atrib_p ap ON ap.pessoa_id = p.id " : "";
 
   // Busca por nome / cidade / whatsapp (mesma busca da tela de Contatos).
   if (busca) {
@@ -101,7 +112,7 @@ export async function GET(req: NextRequest) {
 
   const whereSql = cond.length ? "WHERE " + cond.join(" AND ") : "";
   const linhas = await query<Pessoa & { autor: string | null; criado_fmt: string }>(
-    base + whereSql + " ORDER BY p.id DESC",
+    withAtend + base + joinAtend + whereSql + " ORDER BY p.id DESC",
     params
   );
 

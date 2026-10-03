@@ -6,6 +6,8 @@ import {
   ETIQUETAS,
   FILTRO_IA,
   ROTULO_IA,
+  FILTRO_SEM,
+  ROTULO_SEM,
   alternarEtiqueta,
   etiquetasValidas,
   type Etiqueta,
@@ -733,6 +735,7 @@ export default function AtendimentoCliente({
                 {ETIQUETAS.map((e) => (
                   <option key={e.v} value={e.v}>{e.rotulo}</option>
                 ))}
+                <option value={FILTRO_SEM}>{ROTULO_SEM}</option>
                 <option value={FILTRO_IA}>{ROTULO_IA}</option>
               </select>
             </div>
