@@ -345,7 +345,11 @@ topo da conversa do Atendimento (`POST /api/atendimento`, `acao: "etiqueta"`;
 cria o contato se a IA ainda não cadastrou) ou no painel do contato
 (`POST /api/pessoas/etiqueta`, com o mesmo escopo da lista). Aparecem como
 chips na lista de conversas e na tabela de Contatos, com filtro nos dois e
-coluna na planilha. **IA respondendo** não é gravada: é o estado real da
+coluna na planilha. O filtro tem também **Sem etiqueta** (contato ainda não
+classificado: nenhuma etiqueta válida, `sqlSemEtiqueta`), em Contatos (com
+contagem) e no Atendimento, onde inclui conversa sem contato cadastrado. O
+**Exportar CSV** respeita todos os filtros da tela, inclusive Sem etiqueta e
+Atendimento. **IA respondendo** não é gravada: é o estado real da
 conversa (agente ligado e sem pausa valendo, `SQL_IA_RESPONDENDO` em
 `lib/atendimento.ts`, mesma regra de `estaPausado`) e também filtra a lista.
 

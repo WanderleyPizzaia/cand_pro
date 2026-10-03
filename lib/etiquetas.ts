@@ -18,6 +18,13 @@ export const ETIQUETAS: { v: Etiqueta; rotulo: string; tom: TomEtiqueta }[] = [
 export const FILTRO_IA = "ia";
 export const ROTULO_IA = "IA respondendo";
 
+// Filtro "Sem etiqueta": contato ainda não classificado (nenhuma etiqueta
+// válida). Vale em Contatos e no Atendimento. `col` é a coluna text[].
+export const FILTRO_SEM = "sem";
+export const ROTULO_SEM = "Sem etiqueta";
+export const sqlSemEtiqueta = (col: string) =>
+  `NOT (COALESCE(${col}, '{}'::text[]) && ARRAY[${ETIQUETAS.map((e) => `'${e.v}'`).join(",")}]::text[])`;
+
 // "Vai votar" e "Não vai votar" se excluem: marcar uma desmarca a outra.
 const OPOSTA: Partial<Record<Etiqueta, Etiqueta>> = {
   vai_votar: "nao_vai_votar",

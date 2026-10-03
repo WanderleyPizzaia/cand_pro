@@ -8,7 +8,7 @@ import TabelaContatos, { type LinhaContato } from "./TabelaContatos";
 import Icon from "../../components/Icon";
 import { agentesDaSessao } from "@/lib/escopo";
 import { cteAtendimentoAtivo } from "@/lib/atendimentoCrm";
-import { ETIQUETAS, ehEtiqueta, etiquetasValidas } from "@/lib/etiquetas";
+import { ETIQUETAS, ehEtiqueta, etiquetasValidas, FILTRO_SEM, ROTULO_SEM, sqlSemEtiqueta } from "@/lib/etiquetas";
 
 export const dynamic = "force-dynamic";
 
@@ -55,7 +55,9 @@ export default async function PessoasPage({
   const candFiltro = searchParams.candidato || "";
   const catFiltro = (searchParams.categoria || "").trim();
   const cidFiltro = (searchParams.cidade || "").trim();
-  const etqFiltro = ehEtiqueta(searchParams.etiqueta) ? searchParams.etiqueta : "";
+  // Etiqueta marcada ou "sem" (contato ainda não classificado).
+  const etqFiltro =
+    ehEtiqueta(searchParams.etiqueta) || searchParams.etiqueta === FILTRO_SEM ? searchParams.etiqueta! : "";
   // Quem trabalha no Atendimento vê quem está com atendente (o Líder não).
   const veAtendimento = !ehLider;
   const atdFiltro =
@@ -129,11 +131,21 @@ export default async function PessoasPage({
       ]
     : [];
 
-  const etiquetas = ETIQUETAS.map((e) => ({
-    v: e.v,
-    rotulo: e.rotulo,
-    total: contagemEtiquetas.find((c) => c.v === e.v)?.total ?? 0,
-  }));
+  const semEtiqueta =
+    (
+      await query<{ c: number }>(
+        `SELECT count(*)::int c FROM pessoas p ${escopoSql} ${escopoSql ? "AND" : "WHERE"} ${sqlSemEtiqueta("p.etiquetas")}`,
+        escopoParams
+      )
+    )[0]?.c ?? 0;
+  const etiquetas = [
+    ...ETIQUETAS.map((e) => ({
+      v: e.v as string,
+      rotulo: e.rotulo,
+      total: contagemEtiquetas.find((c) => c.v === e.v)?.total ?? 0,
+    })),
+    { v: FILTRO_SEM, rotulo: ROTULO_SEM, total: semEtiqueta },
+  ];
 
   const wheres = [...escopo];
   const params = [...escopoParams];
@@ -149,7 +161,9 @@ export default async function PessoasPage({
     params.push(cidFiltro);
     wheres.push(`p.cidade = $${params.length}`);
   }
-  if (etqFiltro) {
+  if (etqFiltro === FILTRO_SEM) {
+    wheres.push(sqlSemEtiqueta("p.etiquetas"));
+  } else if (etqFiltro) {
     params.push(etqFiltro);
     wheres.push(`p.etiquetas @> ARRAY[$${params.length}]::text[]`);
   }

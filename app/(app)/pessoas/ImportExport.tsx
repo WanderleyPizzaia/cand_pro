@@ -12,10 +12,10 @@ const fmt = (n: number) => n.toLocaleString("pt-BR");
 export default function ImportExport() {
   const router = useRouter();
   const sp = useSearchParams();
-  // Exporta respeitando os filtros atuais da tela (candidato, categoria, cidade, etiqueta e busca).
+  // Exporta respeitando os filtros atuais da tela (candidato, categoria, cidade, etiqueta, atendimento e busca).
   const exportHref = (() => {
     const p = new URLSearchParams();
-    for (const k of ["candidato", "categoria", "cidade", "etiqueta", "q"]) {
+    for (const k of ["candidato", "categoria", "cidade", "etiqueta", "atendimento", "q"]) {
       const v = sp.get(k);
       if (v) p.set(k, v);
     }
