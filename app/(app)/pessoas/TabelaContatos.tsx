@@ -25,7 +25,19 @@ export type LinhaContato = {
   autor: string | null;
   criadoEm: string;
   etiquetas: string[];
+  // Conversa em andamento com alguém da equipe (null = livre).
+  atendenteId?: number | null;
+  atendenteNome?: string | null;
 };
+
+// "Com você" / "Com Ana": quem está atendendo agora.
+function comQuem(c: LinhaContato, meuId: number | null): string | null {
+  if (!c.atendenteId) return null;
+  if (meuId && c.atendenteId === meuId) return "Com você";
+  return `Com ${(c.atendenteNome || "outro atendente").trim().split(/\s+/)[0]}`;
+}
+// Atendente não inicia o que está com um colega (o servidor também recusa).
+const comOutro = (c: LinhaContato, meuId: number | null) => !!c.atendenteId && c.atendenteId !== meuId;
 
 type Lista = { id: number; nome: string; agente_nome?: string | null; membros?: number };
 
@@ -132,6 +144,7 @@ export default function TabelaContatos({
   podeListas,
   abrirId,
   atender = false,
+  meuId = null,
 }: {
   linhas: LinhaContato[];
   mostrarCandidato: boolean;
@@ -139,6 +152,7 @@ export default function TabelaContatos({
   abrirId: number | null;
   // Atendente: só consulta e inicia atendimento (sem seleção, editar, excluir).
   atender?: boolean;
+  meuId?: number | null;
 }) {
   const router = useRouter();
   const [sel, setSel] = useState<Set<number>>(new Set());
@@ -297,8 +311,13 @@ export default function TabelaContatos({
                         <span className="ct-sub">
                           {[c.funcao, c.cidade].filter(Boolean).join(" · ") || formatFone(c.whatsapp)}
                         </span>
-                        {c.etiquetas.length > 0 && (
+                        {(c.etiquetas.length > 0 || c.atendenteId) && (
                           <span className="ct-etq">
+                            {comQuem(c, meuId) && (
+                              <span className={`selo ${comOutro(c, meuId) ? "violeta" : "info"}`} title="Conversa em andamento">
+                                {comQuem(c, meuId)}
+                              </span>
+                            )}
                             {ETIQUETAS.filter((e) => c.etiquetas.includes(e.v)).map((e) => (
                               <span key={e.v} className={`selo ${e.tom}`}>{e.rotulo}</span>
                             ))}
@@ -320,7 +339,7 @@ export default function TabelaContatos({
                   </td>
                   <td className="ct-col-acoes">
                     <div className="ct-acoes">
-                      {conversa && atender && (
+                      {conversa && atender && !comOutro(c, meuId) && (
                         <Link href={conversa} className="btn btn-sm btn-ghost" title="Iniciar atendimento no WhatsApp">
                           <Icon name="whatsapp" size={16} /> Atender
                         </Link>
@@ -374,6 +393,7 @@ export default function TabelaContatos({
           onFechar={() => setAbertoId(null)}
           onExcluir={() => setExcluir(aberto)}
           atender={atender}
+          meuId={meuId}
         />
       )}
 
@@ -417,14 +437,18 @@ function PainelContato({
   onFechar,
   onExcluir,
   atender = false,
+  meuId = null,
 }: {
   c: LinhaContato;
   mostrarCandidato: boolean;
   onFechar: () => void;
   onExcluir: () => void;
   atender?: boolean;
+  meuId?: number | null;
 }) {
-  const conversa = conversaHref(c, atender);
+  // Com um colega: o atendente não inicia (fica só a informação de quem atende).
+  const bloqueado = atender && comOutro(c, meuId);
+  const conversa = bloqueado ? null : conversaHref(c, atender);
   const [menu, setMenu] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const router = useRouter();
@@ -488,6 +512,9 @@ function PainelContato({
             <h2 className={c.nome ? "" : "sem"}>{c.nome || "Sem nome"}</h2>
             <p>{[c.funcao, c.cidade].filter(Boolean).join(" · ") || "Sem cargo ou cidade"}</p>
             {c.categoria && <span className="selo">{c.categoria}</span>}
+            {comQuem(c, meuId) && (
+              <span className={`selo ${comOutro(c, meuId) ? "violeta" : "info"}`}>{comQuem(c, meuId)}</span>
+            )}
           </div>
         </div>
 
@@ -497,7 +524,12 @@ function PainelContato({
               <Icon name="whatsapp" size={16} /> {atender ? "Iniciar atendimento" : "Abrir conversa"}
             </Link>
           )}
-          {atender && !conversa && <p className="hint">Sem WhatsApp cadastrado: não dá para iniciar atendimento.</p>}
+          {bloqueado && (
+            <p className="hint">
+              Em atendimento com {c.atendenteNome || "outro atendente"}. Peça para transferir ou espere resolver.
+            </p>
+          )}
+          {atender && !bloqueado && !conversa && <p className="hint">Sem WhatsApp cadastrado: não dá para iniciar atendimento.</p>}
           {!atender && (
           <>
           <Link href={`/cadastro?id=${c.id}`} className="btn btn-ghost">

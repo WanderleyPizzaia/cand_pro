@@ -12,11 +12,15 @@ export default function FiltrosContatos({
   cidades,
   etiquetas,
   candidatos,
+  atendimento = [],
 }: {
   categorias: Opcao[];
   cidades: Opcao[];
   etiquetas: Opcao[];
   candidatos: Opcao[];
+  // Com/sem atendente (conversa em andamento): para iniciar pela base sem
+  // atropelar um colega.
+  atendimento?: Opcao[];
 }) {
   const router = useRouter();
   const params = useSearchParams();
@@ -30,16 +34,17 @@ export default function FiltrosContatos({
     router.replace("/pessoas" + (sp.toString() ? "?" + sp.toString() : ""));
   }
 
-  const ativos = ["categoria", "cidade", "etiqueta", "candidato"].filter((k) => params.get(k));
+  const CHAVES = ["atendimento", "categoria", "cidade", "etiqueta", "candidato"];
+  const ativos = CHAVES.filter((k) => params.get(k));
 
-  const seletor = (chave: string, rotulo: string, opcoes: Opcao[]) => {
+  const seletor = (chave: string, rotulo: string, opcoes: Opcao[], todas = "todas") => {
     if (!opcoes.length) return null;
     const atual = params.get(chave) || "";
     return (
       <label className={`filtro-sel${atual ? " ativo" : ""}`}>
         <span className="sr-only">{rotulo}</span>
         <select id={`filtro-${chave}`} value={atual} onChange={(e) => definir(chave, e.target.value)}>
-          <option value="">{rotulo}: todas</option>
+          <option value="">{rotulo}: {todas}</option>
           {opcoes.map((o) => (
             <option key={o.v} value={o.v}>
               {o.rotulo || o.v} ({o.total})
@@ -52,6 +57,7 @@ export default function FiltrosContatos({
 
   return (
     <div className="ct-filtros">
+      {seletor("atendimento", "Atendimento", atendimento, "todos")}
       {seletor("categoria", "Categoria", categorias)}
       {seletor("cidade", "Cidade", cidades)}
       {seletor("etiqueta", "Etiqueta", etiquetas)}
@@ -62,7 +68,7 @@ export default function FiltrosContatos({
           className="btn btn-sm btn-ghost"
           onClick={() => {
             const sp = new URLSearchParams(Array.from(params.entries()));
-            ["categoria", "cidade", "etiqueta", "candidato", "page", "abrir"].forEach((k) => sp.delete(k));
+            [...CHAVES, "page", "abrir"].forEach((k) => sp.delete(k));
             router.replace("/pessoas" + (sp.toString() ? "?" + sp.toString() : ""));
           }}
         >

@@ -1,5 +1,6 @@
 import { query, queryOne, execute } from "./db";
 import { normalizarNumero } from "./evolution";
+import { DIGITOS_WHATSAPP, variantesSql } from "./numeroSql";
 
 // ============================================================
 // CRM de Atendimento em equipe (inbox multi-atendente).
@@ -161,6 +162,16 @@ export async function assumirSeLivre(
   contato: string,
   userId: number
 ): Promise<{ ok: boolean; donoAtual: number | null; donoNome: string | null }> {
+  // Resolvida = encerrada: quem retoma fica com ela. Antes ela reabria presa
+  // ao atendente antigo e o colega que iniciava pela base (Contatos → Atender)
+  // levava "já está sendo atendida" numa conversa que já tinha terminado.
+  await execute(
+    `UPDATE atendimentos
+        SET atendente_id = $3, status = 'atribuido', assumido_em = now(),
+            resolvido_em = NULL, resolvido_por = NULL, atualizado_em = now()
+      WHERE agente_id = $1 AND contato = $2 AND status = 'resolvido'`,
+    [agenteId, contato, userId]
+  );
   await garantirConversa(agenteId, contato);
   const upd = await query<{ atendente_id: number }>(
     `UPDATE atendimentos
@@ -340,4 +351,35 @@ export async function janelaMetaAberta(agenteId: number, contato: string): Promi
     [agenteId, vars.length ? vars : [contato]]
   );
   return !!r?.ok;
+}
+
+// ============================================================
+// Contatos com conversa EM ANDAMENTO com um atendente (status 'atribuido').
+// Resolvida ou na fila conta como livre. Parte das conversas atribuídas
+// (poucas) e chega ao contato pelo índice de dígitos do whatsapp (ou pelo
+// ig_id), com/sem 55 e com/sem 9: não varre a base inteira.
+// Gera os CTEs `atrib` e `atrib_p (pessoa_id, atendente_id, atendente_nome)`
+// para usar em `WITH ...` e `LEFT JOIN atrib_p ap ON ap.pessoa_id = p.id`.
+// `agentes`: números visíveis (null = todos).
+// ============================================================
+export function cteAtendimentoAtivo(agentes: number[] | null): string {
+  const esc = agentes ? `AND at.agente_id IN (${(agentes.length ? agentes : [-1]).map(Number).join(",")})` : "";
+  return `atrib AS MATERIALIZED (
+      SELECT at.agente_id, at.atendente_id, u.nome AS atendente_nome,
+             unnest(CASE WHEN at.contato LIKE 'ig:%' THEN ARRAY[at.contato]
+                         ELSE ${variantesSql("at.contato")} END) AS chave
+        FROM atendimentos at JOIN usuarios u ON u.id = at.atendente_id
+       WHERE at.status = 'atribuido' ${esc}
+    ),
+    atrib_p AS MATERIALIZED (
+      SELECT DISTINCT ON (pessoa_id) pessoa_id, atendente_id, atendente_nome FROM (
+        SELECT pp.id AS pessoa_id, a.atendente_id, a.atendente_nome
+          FROM atrib a JOIN pessoas pp ON pp.agente_id = a.agente_id AND ${DIGITOS_WHATSAPP} = a.chave
+         WHERE a.chave NOT LIKE 'ig:%'
+        UNION ALL
+        SELECT pp.id, a.atendente_id, a.atendente_nome
+          FROM atrib a JOIN pessoas pp ON pp.agente_id = a.agente_id AND pp.ig_id = substr(a.chave, 4)
+         WHERE a.chave LIKE 'ig:%'
+      ) x ORDER BY pessoa_id, atendente_id
+    )`;
 }
