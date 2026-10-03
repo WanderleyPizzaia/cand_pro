@@ -7,6 +7,7 @@ import FiltrosContatos from "./FiltrosContatos";
 import TabelaContatos, { type LinhaContato } from "./TabelaContatos";
 import Icon from "../../components/Icon";
 import { agentesDaSessao } from "@/lib/escopo";
+import { cteAtendimentoAtivo } from "@/lib/atendimentoCrm";
 import { ETIQUETAS, ehEtiqueta, etiquetasValidas } from "@/lib/etiquetas";
 
 export const dynamic = "force-dynamic";
@@ -15,7 +16,12 @@ type Linha = Pessoa & {
   autor: string | null;
   candidato: string | null;
   agente_id: number | null;
+  atendente_id: number | null;
+  atendente_nome: string | null;
 };
+
+// Filtro "Atendimento": conversa em andamento com alguém da equipe.
+const FILTROS_ATEND = ["livre", "com", "meus"] as const;
 
 const POR_PAGINA = 50;
 const PODE_LISTAS = ["ADMIN", "COORDENACAO", "CANDIDATO"];
@@ -37,6 +43,7 @@ export default async function PessoasPage({
     categoria?: string;
     cidade?: string;
     etiqueta?: string;
+    atendimento?: string;
     abrir?: string;
   };
 }) {
@@ -49,6 +56,12 @@ export default async function PessoasPage({
   const catFiltro = (searchParams.categoria || "").trim();
   const cidFiltro = (searchParams.cidade || "").trim();
   const etqFiltro = ehEtiqueta(searchParams.etiqueta) ? searchParams.etiqueta : "";
+  // Quem trabalha no Atendimento vê quem está com atendente (o Líder não).
+  const veAtendimento = !ehLider;
+  const atdFiltro =
+    veAtendimento && (FILTROS_ATEND as readonly string[]).includes(searchParams.atendimento || "")
+      ? (searchParams.atendimento as (typeof FILTROS_ATEND)[number])
+      : "";
   const busca = (searchParams.q || "").trim();
   const page = Math.max(1, parseInt(searchParams.page || "1") || 1);
   const offset = (page - 1) * POR_PAGINA;
@@ -93,6 +106,29 @@ export default async function PessoasPage({
     `SELECT e v, count(*)::int total FROM pessoas p, unnest(p.etiquetas) e ${escopoSql} GROUP BY 1`,
     escopoParams
   );
+  // Conversas em andamento por contato (só o que esta sessão enxerga).
+  const withAtend = veAtendimento ? `WITH ${cteAtendimentoAtivo(boundIds)}` : "";
+  const joinAtend = veAtendimento ? "LEFT JOIN atrib_p ap ON ap.pessoa_id = p.id" : "";
+  const contAtend = veAtendimento
+    ? (
+        await query<{ livre: number; com: number; meus: number }>(
+          `${withAtend}
+           SELECT count(*) FILTER (WHERE ap.pessoa_id IS NULL)::int livre,
+                  count(*) FILTER (WHERE ap.pessoa_id IS NOT NULL)::int com,
+                  count(*) FILTER (WHERE ap.atendente_id = ${Number(sessao.uid)})::int meus
+             FROM pessoas p ${joinAtend} ${escopoSql}`,
+          escopoParams
+        )
+      )[0]
+    : null;
+  const atendimento = contAtend
+    ? [
+        { v: "livre", rotulo: "Sem atendente", total: contAtend.livre },
+        { v: "com", rotulo: "Com atendente", total: contAtend.com },
+        { v: "meus", rotulo: "Comigo", total: contAtend.meus },
+      ]
+    : [];
+
   const etiquetas = ETIQUETAS.map((e) => ({
     v: e.v,
     rotulo: e.rotulo,
@@ -117,6 +153,9 @@ export default async function PessoasPage({
     params.push(etqFiltro);
     wheres.push(`p.etiquetas @> ARRAY[$${params.length}]::text[]`);
   }
+  if (atdFiltro === "livre") wheres.push("ap.pessoa_id IS NULL");
+  if (atdFiltro === "com") wheres.push("ap.pessoa_id IS NOT NULL");
+  if (atdFiltro === "meus") wheres.push(`ap.atendente_id = ${Number(sessao.uid)}`);
   // Busca por nome, cargo, cidade, categoria, email ou número
   // (o número ignora espaços/traços: compara só os dígitos).
   if (busca) {
@@ -134,15 +173,19 @@ export default async function PessoasPage({
   const whereSql = wheres.length ? "WHERE " + wheres.join(" AND ") : "";
 
   const total =
-    (await query<{ c: number }>(`SELECT count(*)::int c FROM pessoas p ${whereSql}`, params))[0]?.c || 0;
+    (await query<{ c: number }>(`${withAtend} SELECT count(*)::int c FROM pessoas p ${joinAtend} ${whereSql}`, params))[0]?.c || 0;
   const totalGeral =
     (await query<{ c: number }>(`SELECT count(*)::int c FROM pessoas p ${escopoSql}`, escopoParams))[0]?.c || 0;
   const totalPaginas = Math.max(1, Math.ceil(total / POR_PAGINA));
 
   const pessoas = await query<Linha>(
-    `SELECT p.*, u.nome as autor, a.candidato FROM pessoas p
+    `${withAtend}
+     SELECT p.*, u.nome as autor, a.candidato,
+            ${veAtendimento ? "ap.atendente_id, ap.atendente_nome" : "NULL::int AS atendente_id, NULL AS atendente_nome"}
+       FROM pessoas p
        LEFT JOIN usuarios u ON u.id = CASE WHEN p.criado_por ~ '^[0-9]+$' THEN p.criado_por::bigint END
        LEFT JOIN agentes a ON p.agente_id = a.id
+       ${joinAtend}
        ${whereSql}
       ORDER BY p.id DESC LIMIT ${POR_PAGINA} OFFSET ${offset}`,
     params
@@ -167,15 +210,18 @@ export default async function PessoasPage({
     autor: p.autor,
     criadoEm: p.criado_em,
     etiquetas: etiquetasValidas(p.etiquetas),
+    atendenteId: p.atendente_id != null ? Number(p.atendente_id) : null,
+    atendenteNome: p.atendente_nome,
   }));
 
-  const filtrando = !!(busca || candFiltro || catFiltro || cidFiltro || etqFiltro);
+  const filtrando = !!(busca || candFiltro || catFiltro || cidFiltro || etqFiltro || atdFiltro);
   const link = (pg: number) => {
     const sp = new URLSearchParams();
     if (candFiltro) sp.set("candidato", candFiltro);
     if (catFiltro) sp.set("categoria", catFiltro);
     if (cidFiltro) sp.set("cidade", cidFiltro);
     if (etqFiltro) sp.set("etiqueta", etqFiltro);
+    if (atdFiltro) sp.set("atendimento", atdFiltro);
     if (busca) sp.set("q", busca);
     if (pg > 1) sp.set("page", String(pg));
     const s = sp.toString();
@@ -215,6 +261,7 @@ export default async function PessoasPage({
           cidades={cidades}
           etiquetas={etiquetas}
           candidatos={candidatos.map((c) => ({ v: String(c.id), rotulo: c.candidato, total: c.total }))}
+          atendimento={atendimento}
         />
       </div>
 
@@ -250,6 +297,7 @@ export default async function PessoasPage({
           podeListas={PODE_LISTAS.includes(sessao.perfil)}
           abrirId={Number(searchParams.abrir) || null}
           atender={atender}
+          meuId={Number(sessao.uid)}
         />
       )}
 

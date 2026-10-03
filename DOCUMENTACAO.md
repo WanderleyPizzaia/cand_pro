@@ -294,7 +294,20 @@ conversa). O botão **Atender** (linha e painel) abre `/atendimento?pessoa=ID`:
 o servidor confere que o contato é de um número dele e acha a conversa
 existente (o número pode estar com ou sem 55 e com ou sem o 9,
 `contatoDaConversa`) ou abre uma **conversa nova**, que nasce na primeira
-mensagem, já atribuída a quem iniciou. A API do Atendimento só deixa o
+mensagem, já atribuída a quem iniciou.
+
+**Com ou sem atendente** (`cteAtendimentoAtivo` em `lib/atendimentoCrm.ts`): a
+lista mostra o selo **Com Fulano** / **Com você** em quem tem conversa em
+andamento (status `atribuido`) e o filtro **Atendimento** separa Sem atendente,
+Com atendente e Comigo, com as contagens (todo perfil menos o Líder).
+Resolvida ou na fila conta como livre. Para o atendente, contato com um colega
+não tem botão Atender (o painel diz com quem está). A consulta parte das
+conversas atribuídas e chega ao contato pelo índice de dígitos (ou `ig_id`),
+com/sem 55 e com/sem 9. Conversa **resolvida** passa a ser de quem a retoma
+(`assumirSeLivre`): antes ela reabria presa ao atendente antigo e travava o
+colega com "já está sendo atendida".
+
+A API do Atendimento só deixa o
 atendente agir em conversa existente ou em contato **cadastrado** daquele
 número (`atendentePodeUsar`): mandar para um telefone qualquer, assumir ou
 etiquetar número solto dá 403. Número oficial (Meta) fora da janela de 24 h
